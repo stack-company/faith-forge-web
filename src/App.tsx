@@ -308,15 +308,21 @@ function App() {
   }, [dispatch, hostContext.isSuperAdminHost, resolvedTenantChurch]);
 
   // Global bootstrap: Ensure church settings, campuses, and ministries (custom terminology)
-  // are loaded as soon as an authenticated session is active.
+  // are loaded as soon as an authenticated session is active, without duplicating calls
+  // when tenant resolution completes with the same churchId.
+  const effectiveChurchId = resolvedTenantChurch?.id || getActiveTenantChurchId();
+
   useEffect(() => {
     if (!token || hostContext.isSuperAdminHost) return;
-    const churchId = resolvedTenantChurch?.id || getActiveTenantChurchId();
-    if (churchId) dispatch(GetChurchById(churchId));
     dispatch(GetChurchCampuses());
     dispatch(GetMinistries());
     dispatch(FetchMyVolunteerPermissions());
-  }, [dispatch, token, hostContext.isSuperAdminHost, resolvedTenantChurch?.id]);
+  }, [dispatch, token, hostContext.isSuperAdminHost]);
+
+  useEffect(() => {
+    if (!token || hostContext.isSuperAdminHost || !effectiveChurchId) return;
+    dispatch(GetChurchById(effectiveChurchId));
+  }, [dispatch, token, hostContext.isSuperAdminHost, effectiveChurchId]);
 
   // Request notification permissions on app startup
   useEffect(() => {
