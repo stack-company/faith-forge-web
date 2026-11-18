@@ -14,6 +14,7 @@ import {
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import { formatPersonFullName } from '@/libs/utils/text';
 import clsx from 'clsx';
 
@@ -39,6 +40,8 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
 }) => {
   useModalBackClose(open, onClose);
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canAssignGlobalRoles = can('users:assign-global-roles');
 
   const [selectedMinistry, setSelectedMinistry] = useState<string>('ALL');
   const [selectedRole, setSelectedRole] = useState<string>('');
@@ -95,6 +98,13 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
     }
 
     const roleToAssign = selectedRole as UserRole;
+    if (
+      !canAssignGlobalRoles &&
+      [UserRole.ADMIN, UserRole.STAFF, UserRole.SUPER_ADMIN].includes(roleToAssign)
+    ) {
+      toast.error('No tienes permisos para asignar roles globales de plataforma');
+      return;
+    }
     setIsAssigning(true);
 
     try {
@@ -179,7 +189,7 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
                         : 'text-gray-500 hover:text-gray-800'
                     )}
                   >
-                    {g.label === 'Administración General' ? 'General' : g.label}
+                    {g.label}
                   </button>
                 ))}
               </div>

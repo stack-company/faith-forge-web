@@ -858,5 +858,18 @@
       "changelog_link": "Ver novedades",
       "changelog_tooltip": "v{{version}} - Novedades"
     }
+  },
+  "users": {
+    "lookup_checking": "Verificando documento en la plataforma...",
+    "already_member_title": "Esta persona ya pertenece a esta iglesia",
+    "already_member_desc": "{{name}} ({{docType}} {{doc}}) ya está registrado como miembro activo en esta iglesia.",
+    "view_profile": "Ver perfil",
+    "existing_user_title": "Esta persona ya cuenta con perfil básico en la plataforma",
+    "existing_user_desc": "{{name}} ({{docType}} {{doc}}) está registrado en otra iglesia. Puedes vincularlo directamente sin duplicar su perfil.",
+    "link_existing_button": "Vincular persona existente a esta iglesia",
+    "linking_button": "Vinculando...",
+    "link_success": "¡Persona vinculada a la iglesia con éxito!",
+    "link_error": "Error al vincular la persona a esta iglesia",
+    "church_staff_delegation_note": "La delegación de administradores y equipo administrativo de esta iglesia se gestiona desde el equipo de la iglesia activa (ChurchStaff)."
   }
 }

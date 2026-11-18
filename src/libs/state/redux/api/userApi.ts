@@ -194,6 +194,23 @@ export const userApi = baseApi.injectEndpoints({
         data,
       }),
     }),
+
+    searchUserByNationalId: builder.query<
+      IUser | null,
+      { nationalId: string; nationalIdType?: string }
+    >({
+      query: ({ nationalId, nationalIdType }) => ({
+        microservice: MicroserviceEnum.User,
+        url: '/user/search-by-national-id',
+        method: HttpRequestMethod.GET,
+        params: {
+          nationalId,
+          ...(nationalIdType ? { nationalIdType } : {}),
+        },
+      }),
+      transformResponse: (response: IUser | '' | null | undefined) =>
+        response && typeof response === 'object' && response.id ? response : null,
+    }),
   }),
   overrideExisting: false,
 });
@@ -219,4 +236,6 @@ export const {
   useVerifyActivationTokenQuery,
   useLazyVerifyActivationTokenQuery,
   useCompleteAccountSetupMutation,
+  useSearchUserByNationalIdQuery,
+  useLazySearchUserByNationalIdQuery,
 } = userApi;

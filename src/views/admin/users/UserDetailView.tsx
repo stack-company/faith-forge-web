@@ -6,6 +6,7 @@ import { KidCheckInSkeleton } from '@/components/ui/DetailSkeleton';
 import PageHeader from '@/components/ui/PageHeader';
 import PhoneDisplay from '@/components/ui/PhoneDisplay';
 import { APP_ROUTES } from '@/config/routes';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import {
   getVolunteerRoleLabel,
   useChurchTerm,
@@ -87,6 +88,8 @@ const UserDetailView: React.FC = () => {
   const dispatch = useAppDispatch();
   const kidsModuleName = useKidsTerm('module_alias');
   const volunteerTerm = useChurchTerm('volunteer');
+  const { can } = usePermissions();
+  const canAssignGlobalRoles = can('users:assign-global-roles');
 
   const {
     current: currentUserInSlice,
@@ -790,6 +793,12 @@ const UserDetailView: React.FC = () => {
                     </Button>
                   </div>
 
+                  {!canAssignGlobalRoles && (
+                    <div className="mb-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 font-medium">
+                      {t('users.church_staff_delegation_note')}
+                    </div>
+                  )}
+
                   {assignedRoles.length === 0 ? (
                     <div className="p-6 bg-slate-50 rounded-2xl text-center flex flex-col items-center">
                       <p className="text-xs text-gray-500 mb-3">
@@ -810,6 +819,14 @@ const UserDetailView: React.FC = () => {
                       {assignedRoles.map((role) => {
                         const isBaseUserRole =
                           role === UserRole.USER || (role as string) === 'USER';
+                        const isGlobalPlatformRole = [
+                          UserRole.ADMIN,
+                          UserRole.STAFF,
+                          UserRole.SUPER_ADMIN,
+                        ].includes(role as UserRole);
+                        const canDeleteThisRole =
+                          !isBaseUserRole &&
+                          (!isGlobalPlatformRole || canAssignGlobalRoles);
                         const meta = ALL_SYSTEM_ROLES_METADATA[role];
                         return (
                           <div
@@ -853,8 +870,8 @@ const UserDetailView: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Individual Delete Role Button (Desbloqueado solo para roles no básicos) */}
-                            {!isBaseUserRole ? (
+                            {/* Individual Delete Role Button (Desbloqueado solo para roles editables) */}
+                            {canDeleteThisRole ? (
                               <button
                                 type="button"
                                 onClick={() => {

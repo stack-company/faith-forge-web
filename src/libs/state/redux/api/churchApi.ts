@@ -31,7 +31,9 @@ import {
   IChurchPrinter,
   IChurchReport,
   IChurchStaff,
+  ICreateUser,
   IMinistry,
+  IUser,
   IMinistryAnalyticsResponse,
   IMinistryAttendanceMatrixResponse,
   IMinistryMeetingGroupAssignment,
@@ -61,6 +63,23 @@ import { baseApi } from './baseApi';
 
 export interface GetChurchMeetingsArgs {
   churchCampusId?: string;
+}
+
+export interface GetChurchMembersDirectoryArgs {
+  churchId?: string;
+  page?: number;
+  limit?: number;
+  filterByFirstName?: string;
+  filterByLastName?: string;
+  filterByNationalId?: string;
+  filterByHasNationalId?: boolean;
+}
+
+export interface GetChurchMembersDirectoryResponse {
+  data: IUser[];
+  currentPage: number;
+  totalPages: number;
+  total?: number;
 }
 
 export interface GetChurchPrintersArgs {
@@ -268,6 +287,46 @@ export const churchApi = baseApi.injectEndpoints({
               { type: 'ChurchMember', id: 'LIST' },
             ]
           : [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    getChurchMembersDirectory: builder.query<
+      GetChurchMembersDirectoryResponse,
+      GetChurchMembersDirectoryArgs | void
+    >({
+      query: (args) => {
+        const { churchId, ...params } = args || {};
+        return {
+          microservice: MicroserviceEnum.Church,
+          url: '/church/members',
+          method: HttpRequestMethod.GET,
+          params,
+          headers: churchId ? { 'x-church-id': churchId } : undefined,
+        };
+      },
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ id }) => ({
+                type: 'ChurchMember' as const,
+                id,
+              })),
+              { type: 'ChurchMember', id: 'LIST' },
+            ]
+          : [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    createChurchMember: builder.mutation<
+      IUser,
+      { data: ICreateUser; churchId?: string }
+    >({
+      query: ({ data, churchId }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: '/church/members',
+        method: HttpRequestMethod.POST,
+        data,
+        headers: churchId ? { 'x-church-id': churchId } : undefined,
+      }),
+      invalidatesTags: [{ type: 'ChurchMember', id: 'LIST' }],
     }),
 
     getChurchStaff: builder.query<IChurchStaff[], { churchId: string }>({
@@ -1186,6 +1245,9 @@ export const {
   useUploadChurchBrandingLogoMutation,
   useGetChurchMembersQuery,
   useLazyGetChurchMembersQuery,
+  useGetChurchMembersDirectoryQuery,
+  useLazyGetChurchMembersDirectoryQuery,
+  useCreateChurchMemberMutation,
   useGetChurchStaffQuery,
   useLazyGetChurchStaffQuery,
   useUpdateChurchStaffRolesMutation,
