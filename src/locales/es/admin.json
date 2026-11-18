@@ -577,6 +577,7 @@
     "no_custom_domains": "Sin dominio propio",
     "pwa_brand_label": "Marca PWA",
     "open_tenant_btn": "Abrir portal",
+    "manage_church_btn": "Administrar iglesia",
     "configure_btn": "Configurar",
     "empty_title": "No hay iglesias registradas",
     "empty_desc": "Registra la primera iglesia para habilitar su subdominio y su aplicación PWA de marca blanca.",

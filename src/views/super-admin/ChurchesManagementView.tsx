@@ -7,6 +7,7 @@ import {
   Settings,
   Smartphone,
   CheckCircle2,
+  LayoutDashboard,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import Button from '@/components/ui/Button';
 import { EntityState, IChurch } from '@/libs/models';
 import { useGetChurchesQuery } from '@/libs/state/redux/api/churchApi';
 import { ChurchTenantModal } from '@/components/modal/ChurchTenantModal';
+import { buildTenantAdminUrl } from '@/libs/utils/tenant';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
@@ -88,6 +90,18 @@ page: 1,
   const handleEditChurch = (church: IChurch): void => {
     setSelectedChurch(church);
     setModalOpen(true);
+  };
+
+  /**
+   * Navigates to the tenant's admin panel as the active church.
+   *
+   * @param {IChurch} church - Active church tenant with a configured slug.
+   * @returns {void}
+   */
+  const handleManageChurch = (church: IChurch): void => {
+    const isActive = church.state === EntityState.ACTIVE || !church.state;
+    if (!isActive || !church.slug?.trim()) return;
+    window.location.assign(buildTenantAdminUrl(church));
   };
 
   /**
@@ -335,7 +349,7 @@ page: 1,
                 </div>
 
                 {/* Actions Footer */}
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                   <a
                     href={buildTenantPortalUrl(church)}
                     target="_blank"
@@ -346,17 +360,34 @@ page: 1,
                     <ExternalLink size={13} />
                   </a>
 
-                  <Button
-                    type="button"
-                    variant="default"
-                    onClick={() => handleEditChurch(church)}
-                    className="text-xs px-3.5 py-2 h-auto rounded-xl"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Settings size={14} />
-                      {t('admin:super_admin.configure_btn')}
-                    </span>
-                  </Button>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={!isActive || !church.slug?.trim()}
+                      onClick={() => handleManageChurch(church)}
+                      className="text-xs px-3 py-2 h-auto rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <LayoutDashboard size={14} />
+                        {t('admin:super_admin.manage_church_btn')}
+                      </span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleEditChurch(church)}
+                      className="text-xs px-3 py-2 h-auto rounded-xl"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Settings size={14} />
+                        {t('admin:super_admin.configure_btn')}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
