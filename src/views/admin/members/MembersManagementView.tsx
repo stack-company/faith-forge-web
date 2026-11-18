@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Loader2,
   UserPlus,
@@ -290,16 +291,17 @@ const UserManagementView: React.FC = () => {
     isFetching: isDirectoryFetching,
     refetch: refetchDirectory,
   } = useGetChurchMembersDirectoryQuery(
-    {
-      churchId: activeChurchId ?? '',
-      page,
-      limit: PAGINATION_REGISTRATION_LIMIT,
-      filterByFirstName: searchFilters.filterByFirstName,
-      filterByLastName: searchFilters.filterByLastName,
-      filterByNationalId: searchFilters.numericId,
-      filterByHasNationalId: hasNationalIdFilter,
-    },
-    { skip: !activeChurchId },
+    activeChurchId
+      ? {
+          churchId: activeChurchId,
+          page,
+          limit: PAGINATION_REGISTRATION_LIMIT,
+          filterByFirstName: searchFilters.filterByFirstName,
+          filterByLastName: searchFilters.filterByLastName,
+          filterByNationalId: searchFilters.numericId,
+          filterByHasNationalId: hasNationalIdFilter,
+        }
+      : skipToken,
   );
 
   const {

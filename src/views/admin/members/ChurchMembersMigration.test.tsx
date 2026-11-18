@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { skipToken } from '@reduxjs/toolkit/query';
 import UserManagementView from './MembersManagementView';
 import CreateUserView from './CreateMemberView';
 import UpdateUserView from './UpdateMemberView';
@@ -344,10 +345,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
       </MemoryRouter>,
     );
 
-    expect(mockGetChurchMembersDirectory).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ skip: true }),
-    );
+    expect(mockGetChurchMembersDirectory).toHaveBeenCalledWith(skipToken, undefined);
     expect(mockGetGlobalUsers).toHaveBeenCalledWith(
       expect.objectContaining({ page: 1 }),
       expect.objectContaining({ skip: false }),
