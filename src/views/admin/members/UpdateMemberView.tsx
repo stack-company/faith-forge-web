@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { 
   Camera, 
   Trash2, 
@@ -22,6 +23,8 @@ import {
   UpdateUser, 
   UploadUserImage 
 } from '@/libs/state/redux/thunks/user/user.thunk';
+import { useUpdateChurchMemberMutation } from '@/libs/state/redux/api/churchApi';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { 
   IUser, 
   IUpdateUser, 
@@ -68,6 +71,11 @@ const UpdateUserView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { t } = useTranslation('admin');
+  const [updateChurchMember] = useUpdateChurchMemberMutation();
+  const activeChurchId =
+    useAppSelector((state) => state.churchCampusSlice.church?.id) ||
+    getActiveTenantChurchId();
   const currentUser = useAppSelector((state) => state.authSlice.user);
   const { current: currentUserInSlice, data: usersList } = useAppSelector((state) => state.userSlice);
 
@@ -221,7 +229,7 @@ const UpdateUserView: React.FC = () => {
   };
 
   /**
-   * Submits form to update user via PUT /user/:id.
+   * Submits form to update church member via PUT /church/members/:id (or PUT /user/:id in global mode).
    *
    * @param {UpdateUserFormData} data - Collected form data.
    */
@@ -229,7 +237,7 @@ const UpdateUserView: React.FC = () => {
     if (!id || !loadedUser) return;
 
     setIsSubmitting(true);
-    const toastId = toast.loading('Actualizando información del usuario...');
+    const toastId = toast.loading(t('users.updating'));
 
     try {
       let finalPhotoUrl = photoPreview;
@@ -264,14 +272,22 @@ const UpdateUserView: React.FC = () => {
         photoUrl: finalPhotoUrl || undefined,
       };
 
-      await dispatch(
-        UpdateUser({
+      if (activeChurchId) {
+        await updateChurchMember({
           id,
-          updateUser: updatePayload,
-        })
-      ).unwrap();
+          data: updatePayload,
+          churchId: activeChurchId,
+        }).unwrap();
+      } else {
+        await dispatch(
+          UpdateUser({
+            id,
+            updateUser: updatePayload,
+          })
+        ).unwrap();
+      }
 
-      toast.success('¡Usuario actualizado exitosamente!', { id: toastId });
+      toast.success(t('users.update_success'), { id: toastId });
 
       // Update auth session if editing current session user
       if (currentUser?.id === id) {
@@ -285,7 +301,10 @@ const UpdateUserView: React.FC = () => {
 
       navigate(APP_ROUTES.admin.userDetail(id));
     } catch (err: any) {
-      toast.error(err?.message || err?.error || 'Error al actualizar el usuario', { id: toastId });
+      toast.error(
+        err?.data?.message || err?.message || err?.error || t('users.update_error'),
+        { id: toastId },
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -29,6 +29,7 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
 import { formatPersonFullName } from '@/libs/utils/text';
+import { getActiveChurchId } from '@/libs/utils/tenant';
 import clsx from 'clsx';
 
 interface AssignUserMinistryModalProps {
@@ -93,7 +94,8 @@ export const AssignUserMinistryModal: React.FC<AssignUserMinistryModalProps> = (
 }) => {
   useModalBackClose(open, onClose);
   const dispatch = useAppDispatch();
-  const churchId = import.meta.env.VITE_CHURCH_ID;
+  const storeChurchId = useAppSelector((state) => state.churchCampusSlice.church?.id);
+  const churchId = getActiveChurchId(storeChurchId);
 
   const { ministries, areasByMinistry, groupsByMinistry, serviceAreaGroups } =
     useAppSelector((state) => state.ministrySlice);

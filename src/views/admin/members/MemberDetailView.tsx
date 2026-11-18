@@ -41,6 +41,7 @@ import {
 import { ALL_SYSTEM_ROLES_METADATA, UserRole } from '@/libs/utils/auth';
 import { formatDateOnly, toDateOnlyInputValue } from '@/libs/utils/date';
 import { capitalizeWords, formatPersonFullName } from '@/libs/utils/text';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -123,7 +124,10 @@ const UserDetailView: React.FC = () => {
       dispatch(GetChurchCampuses());
     }
     if (!ministries || ministries.length === 0) {
-      dispatch(GetMinistries({ churchId: import.meta.env.VITE_CHURCH_ID }));
+      const activeChurchId = getActiveTenantChurchId();
+      if (activeChurchId) {
+        dispatch(GetMinistries({ churchId: activeChurchId }));
+      }
     }
   }, [dispatch, campuses?.length, ministries?.length]);
 
