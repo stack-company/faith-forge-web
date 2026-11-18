@@ -1,52 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
-import { 
-  Camera, 
-  Trash2, 
-  Sparkles, 
-  Save, 
-  RotateCcw,
-  CheckCircle2,
-  User as UserIcon,
-  Loader2,
-  ArrowLeft,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import clsx from 'clsx';
-import PageHeader from '@/components/ui/PageHeader';
-import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
-import { updateAuthUser } from '@/libs/state/redux/slices/user/auth.slice';
-import { 
-  GetUser, 
-  UpdateUser, 
-  UploadUserImage 
-} from '@/libs/state/redux/thunks/user/user.thunk';
-import { useUpdateChurchMemberMutation } from '@/libs/state/redux/api/churchApi';
-import { getActiveTenantChurchId } from '@/libs/utils/tenant';
-import { 
-  IUser, 
-  IUpdateUser, 
-  UserIdType, 
-  UserState, 
-  UserGenderCode,
-  idTypeSelect, 
-  healthSecurityEntitySelect, 
-  userStateSelect 
-} from '@/libs/models/User';
-import { resizeAndCropImageToSquare } from '@/libs/utils/image';
-import { validateTwoLastNames } from '@/libs/utils/validator';
-import { validatePhoneNumber } from '@/libs/utils/phone';
-import { toDateOnlyInputValue } from '@/libs/utils/date';
-import { formatPersonFullName } from '@/libs/utils/text';
-import { APP_ROUTES } from '@/config/routes';
-import Input from '@/components/ui/Input';
-import PhoneInput from '@/components/ui/PhoneInput';
-import DatePickerWheel from '@/components/ui/DatePickerWheel';
-import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import DatePickerWheel from '@/components/ui/DatePickerWheel';
+import Input from '@/components/ui/Input';
+import PageHeader from '@/components/ui/PageHeader';
+import PhoneInput from '@/components/ui/PhoneInput';
+import Select from '@/components/ui/Select';
+import { APP_ROUTES } from '@/config/routes';
+import {
+  IUpdateUser,
+  IUser,
+  UserGenderCode,
+  UserIdType,
+  UserState,
+  healthSecurityEntitySelect,
+  idTypeSelect,
+  userStateSelect,
+} from '@/libs/models/User';
+import { useUpdateChurchMemberMutation } from '@/libs/state/redux/api/churchApi';
+import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
+import { updateAuthUser } from '@/libs/state/redux/slices/user/auth.slice';
+import { patchUserInStore } from '@/libs/state/redux/slices/user/users.slice';
+import {
+  GetUser,
+  UpdateUser,
+  UploadUserImage,
+} from '@/libs/state/redux/thunks/user/user.thunk';
+import { toDateOnlyInputValue } from '@/libs/utils/date';
+import { resizeAndCropImageToSquare } from '@/libs/utils/image';
+import { validatePhoneNumber } from '@/libs/utils/phone';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
+import { formatPersonFullName } from '@/libs/utils/text';
+import { validateTwoLastNames } from '@/libs/utils/validator';
+import clsx from 'clsx';
+import {
+  ArrowLeft,
+  Camera,
+  CheckCircle2,
+  Loader2,
+  RotateCcw,
+  Save,
+  Sparkles,
+  Trash2,
+  User as UserIcon,
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface UpdateUserFormData {
   firstName: string;
@@ -77,7 +78,9 @@ const UpdateUserView: React.FC = () => {
     useAppSelector((state) => state.churchCampusSlice.church?.id) ||
     getActiveTenantChurchId();
   const currentUser = useAppSelector((state) => state.authSlice.user);
-  const { current: currentUserInSlice, data: usersList } = useAppSelector((state) => state.userSlice);
+  const { current: currentUserInSlice, data: usersList } = useAppSelector(
+    (state) => state.userSlice,
+  );
 
   const [loadedUser, setLoadedUser] = useState<IUser | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -94,7 +97,7 @@ const UpdateUserView: React.FC = () => {
     setValue,
     reset,
     trigger,
-    formState: { errors, isDirty }
+    formState: { errors, isDirty },
   } = useForm<UpdateUserFormData>({
     defaultValues: {
       firstName: '',
@@ -120,9 +123,10 @@ const UpdateUserView: React.FC = () => {
    * @param {IUser} user - User data returned by API.
    */
   const populateUserData = (user: IUser) => {
-    const userGender = 
-      user.gender === UserGenderCode.FEMALE || (user.gender as unknown) === 'FEMALE' 
-        ? UserGenderCode.FEMALE 
+    const userGender =
+      user.gender === UserGenderCode.FEMALE ||
+      (user.gender as unknown) === 'FEMALE'
+        ? UserGenderCode.FEMALE
         : UserGenderCode.MALE;
 
     const formattedBirthday = toDateOnlyInputValue(user.birthday);
@@ -201,7 +205,9 @@ const UpdateUserView: React.FC = () => {
       const file = e.target.files[0];
       try {
         const resizedBlob = await resizeAndCropImageToSquare(file);
-        const resizedFile = new File([resizedBlob], file.name, { type: file.type });
+        const resizedFile = new File([resizedBlob], file.name, {
+          type: file.type,
+        });
         setPhotoFile(resizedFile);
         setPhotoPreview(URL.createObjectURL(resizedBlob));
       } catch (error) {
@@ -247,12 +253,14 @@ const UpdateUserView: React.FC = () => {
         try {
           const formData = new FormData();
           formData.append('file', photoFile);
-          const uploadRes = await dispatch(UploadUserImage({ formData })).unwrap();
-          if (uploadRes) {
-            finalPhotoUrl = uploadRes;
-          }
+          const uploadRes = await dispatch(
+            UploadUserImage({ formData }),
+          ).unwrap();
+          if (uploadRes) finalPhotoUrl = uploadRes;
         } catch (uploadErr) {
-          toast.error('No se pudo subir la foto, se continuará con los demás datos.');
+          toast.error(
+            'No se pudo subir la foto, se continuará con los demás datos.',
+          );
         }
       }
 
@@ -273,36 +281,41 @@ const UpdateUserView: React.FC = () => {
       };
 
       if (activeChurchId) {
-        await updateChurchMember({
+        const updatedMember = await updateChurchMember({
           id,
           data: updatePayload,
           churchId: activeChurchId,
         }).unwrap();
-      } else {
-        await dispatch(
-          UpdateUser({
+        dispatch(
+          patchUserInStore({
             id,
-            updateUser: updatePayload,
-          })
-        ).unwrap();
+            data:
+              updatedMember && typeof updatedMember === 'object'
+                ? updatedMember
+                : ({
+                    ...updatePayload,
+                    photoUrl: finalPhotoUrl,
+                  } as Partial<IUser>),
+          }),
+        );
+        dispatch(GetUser({ id }));
+      } else {
+        await dispatch(UpdateUser({ id, updateUser: updatePayload })).unwrap();
       }
 
       toast.success(t('users.update_success'), { id: toastId });
 
       // Update auth session if editing current session user
-      if (currentUser?.id === id) {
-        dispatch(
-          updateAuthUser({
-            ...updatePayload,
-            photoUrl: finalPhotoUrl,
-          })
-        );
-      }
+      if (currentUser?.id === id)
+        dispatch(updateAuthUser({ ...updatePayload, photoUrl: finalPhotoUrl }));
 
       navigate(APP_ROUTES.admin.userDetail(id));
     } catch (err: any) {
       toast.error(
-        err?.data?.message || err?.message || err?.error || t('users.update_error'),
+        err?.data?.message ||
+          err?.message ||
+          err?.error ||
+          t('users.update_error'),
         { id: toastId },
       );
     } finally {
@@ -328,7 +341,11 @@ const UpdateUserView: React.FC = () => {
   if (isLoadingUser) {
     return (
       <div className="min-h-full flex-1 w-full bg-slate-50 pb-20">
-        <PageHeader title="Editar Usuario" onBack={handleBack} className="lg:hidden" />
+        <PageHeader
+          title="Editar Usuario"
+          onBack={handleBack}
+          className="lg:hidden"
+        />
         <div className="flex justify-center items-center py-24">
           <Loader2 className="animate-spin text-primary" size={32} />
         </div>
@@ -338,7 +355,11 @@ const UpdateUserView: React.FC = () => {
 
   return (
     <div className="min-h-full flex-1 w-full bg-slate-50 pb-28">
-      <PageHeader title="Editar Usuario" onBack={handleBack} className="lg:hidden" />
+      <PageHeader
+        title="Editar Usuario"
+        onBack={handleBack}
+        className="lg:hidden"
+      />
 
       <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:py-8 flex flex-col gap-6">
         <div className="hidden lg:flex items-center gap-3">
@@ -350,11 +371,16 @@ const UpdateUserView: React.FC = () => {
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Editar Usuario</h1>
-            <p className="text-xs text-gray-500">Modifica los datos personales, de contacto y el estado de la cuenta</p>
+            <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">
+              Editar Usuario
+            </h1>
+            <p className="text-xs text-gray-500">
+              Modifica los datos personales, de contacto y el estado de la
+              cuenta
+            </p>
           </div>
         </div>
-        
+
         {/* Header Card */}
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-xs">
           <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider mb-1">
@@ -370,19 +396,27 @@ const UpdateUserView: React.FC = () => {
         </div>
 
         {/* Edit Form */}
-        <form 
-          onSubmit={handleSubmit(onSubmit)} 
+        <form
+          onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col gap-6 animate-in fade-in duration-300"
         >
           {/* Foto de Perfil */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 shadow-xs flex flex-col items-center sm:flex-row gap-5">
             <div className="relative group shrink-0">
-              <div className={clsx(
-                'w-24 h-24 rounded-full overflow-hidden border-2 border-primary/20 flex items-center justify-center shadow-xs transition-transform',
-                watchedGender === UserGenderCode.FEMALE ? 'bg-pink-50 text-pink-500' : 'bg-blue-50 text-blue-500'
-              )}>
+              <div
+                className={clsx(
+                  'w-24 h-24 rounded-full overflow-hidden border-2 border-primary/20 flex items-center justify-center shadow-xs transition-transform',
+                  watchedGender === UserGenderCode.FEMALE
+                    ? 'bg-pink-50 text-pink-500'
+                    : 'bg-blue-50 text-blue-500',
+                )}
+              >
                 {photoPreview ? (
-                  <img src={photoPreview} alt="Foto de perfil" className="w-full h-full object-cover" />
+                  <img
+                    src={photoPreview}
+                    alt="Foto de perfil"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <UserIcon size={44} />
                 )}
@@ -405,10 +439,14 @@ const UpdateUserView: React.FC = () => {
 
             <div className="flex-1 text-center sm:text-left flex flex-col justify-center">
               <h2 className="text-base font-extrabold text-gray-900">
-                {formatPersonFullName(loadedUser?.firstName, loadedUser?.lastName)}
+                {formatPersonFullName(
+                  loadedUser?.firstName,
+                  loadedUser?.lastName,
+                )}
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                ID: #{loadedUser?.userCode || loadedUser?.id?.slice(0, 8)} • {loadedUser?.nationalIdType || 'CC'}: {loadedUser?.nationalId}
+                ID: #{loadedUser?.userCode || loadedUser?.id?.slice(0, 8)} •{' '}
+                {loadedUser?.nationalIdType || 'CC'}: {loadedUser?.nationalId}
               </p>
 
               <div className="flex items-center gap-2 justify-center sm:justify-start mt-3">
@@ -502,12 +540,16 @@ const UpdateUserView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setValue('gender', UserGenderCode.MALE, { shouldDirty: true })}
+                  onClick={() =>
+                    setValue('gender', UserGenderCode.MALE, {
+                      shouldDirty: true,
+                    })
+                  }
                   className={clsx(
                     'flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all',
                     watchedGender === UserGenderCode.MALE
                       ? 'border-blue-500 bg-blue-50/80 text-blue-700 shadow-xs'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
                   )}
                 >
                   Masculino
@@ -515,12 +557,16 @@ const UpdateUserView: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setValue('gender', UserGenderCode.FEMALE, { shouldDirty: true })}
+                  onClick={() =>
+                    setValue('gender', UserGenderCode.FEMALE, {
+                      shouldDirty: true,
+                    })
+                  }
                   className={clsx(
                     'flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all',
                     watchedGender === UserGenderCode.FEMALE
                       ? 'border-pink-500 bg-pink-50/80 text-pink-700 shadow-xs'
-                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
                   )}
                 >
                   Femenino
@@ -554,9 +600,7 @@ const UpdateUserView: React.FC = () => {
                     value={field.value}
                     onChange={(e) => field.onChange(e.target.value)}
                   >
-                    <option value="">
-                      Seleccionar EPS...
-                    </option>
+                    <option value="">Seleccionar EPS...</option>
                     {healthSecurityEntitySelect.map((opt) => (
                       <option key={opt.id} value={opt.name}>
                         {opt.name}
@@ -588,7 +632,9 @@ const UpdateUserView: React.FC = () => {
                   if (!val || !val.trim()) return true;
                   const dialCode = watch('dialCodePhone') || '+57';
                   const res = validatePhoneNumber(val, dialCode);
-                  return res.isValid ? true : (res.error || 'Número de teléfono inválido');
+                  return res.isValid
+                    ? true
+                    : res.error || 'Número de teléfono inválido';
                 },
               }}
               render={({ field }) => (
@@ -663,7 +709,8 @@ const UpdateUserView: React.FC = () => {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 size={20} className="animate-spin" /> Guardando Cambios...
+                  <Loader2 size={20} className="animate-spin" /> Guardando
+                  Cambios...
                 </>
               ) : (
                 <>

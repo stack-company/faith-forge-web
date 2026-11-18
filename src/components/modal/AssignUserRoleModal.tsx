@@ -1,22 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
 import AppModal from '@/components/ui/AppModal';
-import { ShieldPlus, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAppDispatch } from '@/libs/state/redux/hooks';
-import { AssignUserRole } from '@/libs/state/redux/thunks/user/user.thunk';
-import { IUser } from '@/libs/models';
-import {
-  AppRole,
-  UserRole,
-  ALL_SYSTEM_ROLES_METADATA,
-  MINISTRY_ROLE_GROUPS,
-} from '@/libs/utils/auth';
-import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
 import { usePermissions } from '@/libs/hooks/usePermissions';
+import { IUser } from '@/libs/models';
+import { useAppDispatch } from '@/libs/state/redux/hooks';
+import { AssignUserRole } from '@/libs/state/redux/thunks/user/user.thunk';
+import {
+  ALL_SYSTEM_ROLES_METADATA,
+  AppRole,
+  UserRole,
+} from '@/libs/utils/auth';
 import { formatPersonFullName } from '@/libs/utils/text';
-import clsx from 'clsx';
+import { CheckCircle2, ShieldCheck, ShieldPlus } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+
+const ASSIGNABLE_USER_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.STAFF,
+];
 
 interface AssignUserRoleModalProps {
   open: boolean;
@@ -43,27 +47,21 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
   const { can } = usePermissions();
   const canAssignGlobalRoles = can('users:assign-global-roles');
 
-  const [selectedMinistry, setSelectedMinistry] = useState<string>('ALL');
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
   // Reset state when opening modal
   useEffect(() => {
     if (open) {
-      setSelectedMinistry('ALL');
       setSelectedRole('');
       setIsAssigning(false);
     }
   }, [open]);
 
-  const filteredRoles: AppRole[] = useMemo(() => {
-    let roles = MINISTRY_ROLE_GROUPS.flatMap((g) => g.roles);
-    if (selectedMinistry !== 'ALL') {
-      const group = MINISTRY_ROLE_GROUPS.find((g) => g.id === selectedMinistry);
-      roles = group ? group.roles : [];
-    }
-    return roles.filter((role) => !user?.roles?.includes(role as any));
-  }, [selectedMinistry, user?.roles]);
+  const filteredRoles: UserRole[] = useMemo(() => {
+    if (!canAssignGlobalRoles) return [];
+    return ASSIGNABLE_USER_ROLES.filter((role) => !user?.roles?.includes(role));
+  }, [canAssignGlobalRoles, user?.roles]);
 
   const availableRoles = useMemo(
     () =>
@@ -77,7 +75,9 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
     [filteredRoles],
   );
 
-  const selectedRoleMeta = selectedRole ? ALL_SYSTEM_ROLES_METADATA[selectedRole as AppRole] : null;
+  const selectedRoleMeta = selectedRole
+    ? ALL_SYSTEM_ROLES_METADATA[selectedRole as AppRole]
+    : null;
 
   /**
    * Handles submitting the role assignment.
@@ -100,27 +100,31 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
     const roleToAssign = selectedRole as UserRole;
     if (
       !canAssignGlobalRoles &&
-      [UserRole.ADMIN, UserRole.STAFF, UserRole.SUPER_ADMIN].includes(roleToAssign)
+      [UserRole.ADMIN, UserRole.STAFF, UserRole.SUPER_ADMIN].includes(
+        roleToAssign,
+      )
     ) {
-      toast.error('No tienes permisos para asignar roles globales de plataforma');
+      toast.error(
+        'No tienes permisos para asignar roles globales de plataforma',
+      );
       return;
     }
     setIsAssigning(true);
 
     try {
       await dispatch(
-        AssignUserRole({
-          userId: user.id,
-          userRole: roleToAssign,
-        })
+        AssignUserRole({ userId: user.id, userRole: roleToAssign }),
       ).unwrap();
 
-      const roleName = ALL_SYSTEM_ROLES_METADATA[roleToAssign]?.name || roleToAssign;
+      const roleName =
+        ALL_SYSTEM_ROLES_METADATA[roleToAssign]?.name || roleToAssign;
       toast.success(`¡Rol "${roleName}" asignado con éxito!`);
       onSuccess?.(roleToAssign);
       onClose();
     } catch (err: any) {
-      toast.error(err?.message || err?.error || 'Error al asignar el rol al usuario');
+      toast.error(
+        err?.message || err?.error || 'Error al asignar el rol al usuario',
+      );
     } finally {
       setIsAssigning(false);
     }
@@ -136,124 +140,93 @@ export const AssignUserRoleModal: React.FC<AssignUserRoleModalProps> = ({
       bodyClassName="p-5 flex flex-col gap-4 pb-6"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* User Target Header */}
-            {user && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                  <ShieldCheck size={20} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-sm text-gray-900 truncate">
-                    {formatPersonFullName(user.firstName, user.lastName)}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user.nationalIdType || 'CC'}: {user.nationalId || 'Sin documento'} • Roles activos:{' '}
-                    <span className="font-bold text-gray-700">{user.roles?.length || 0}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Filtro por Ministerio / Módulo */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-gray-700">
-                Ministerio / Módulo
-              </label>
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMinistry('ALL')}
-                  className={clsx(
-                    'flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all text-center cursor-pointer',
-                    selectedMinistry === 'ALL'
-                      ? 'bg-white text-gray-900 shadow-2xs'
-                      : 'text-gray-500 hover:text-gray-800'
-                  )}
-                >
-                  Todos
-                </button>
-                {MINISTRY_ROLE_GROUPS.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedMinistry(g.id);
-                      if (selectedRole && !g.roles.includes(selectedRole as UserRole)) {
-                        setSelectedRole('');
-                      }
-                    }}
-                    className={clsx(
-                      'flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all text-center cursor-pointer',
-                      selectedMinistry === g.id
-                        ? 'bg-white text-gray-900 shadow-2xs'
-                        : 'text-gray-500 hover:text-gray-800'
-                    )}
-                  >
-                    {g.label}
-                  </button>
-                ))}
-              </div>
+        {/* User Target Header */}
+        {user && (
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+              <ShieldCheck size={20} />
             </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-sm text-gray-900 truncate">
+                {formatPersonFullName(user.firstName, user.lastName)}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {user.nationalIdType || 'CC'}:{' '}
+                {user.nationalId || 'Sin documento'} • Roles activos:{' '}
+                <span className="font-bold text-gray-700">
+                  {user.roles?.length || 0}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
 
-            {/* Check if user already has all roles */}
-            {availableRoles.length === 0 ? (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-center text-xs font-semibold">
-                ✨ Este usuario ya cuenta con todos los roles de sistema disponibles.
-              </div>
-            ) : (
-              <>
-                {/* Role Selector */}
-                <Select
-                  label="Seleccionar Rol a Asignar"
-                  required
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                >
-                  <option value="" disabled>
-                    Selecciona el rol...
-                  </option>
-                  {availableRoles.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.name}
-                    </option>
-                  ))}
-                </Select>
+        {/* Permission guard or all roles assigned */}
+        {!canAssignGlobalRoles ? (
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 p-4 rounded-2xl text-center text-xs font-semibold">
+            No tienes permisos para asignar roles globales de plataforma.
+          </div>
+        ) : availableRoles.length === 0 ? (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-center text-xs font-semibold">
+            ✨ Este usuario ya cuenta con todos los roles de sistema
+            disponibles.
+          </div>
+        ) : (
+          <>
+            {/* Role Selector */}
+            <Select
+              label="Seleccionar Rol a Asignar"
+              required
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+            >
+              <option value="" disabled>
+                Selecciona el rol...
+              </option>
+              {availableRoles.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.name}
+                </option>
+              ))}
+            </Select>
 
-                {/* Selected Role Preview Info */}
-                {selectedRoleMeta && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                      <CheckCircle2 size={18} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-gray-900">{selectedRoleMeta.name}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
-                          {selectedRoleMeta.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                        {selectedRoleMeta.description}
-                      </p>
-                    </div>
+            {/* Selected Role Preview Info */}
+            {selectedRoleMeta && (
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle2 size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-gray-900">
+                      {selectedRoleMeta.name}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
+                      {selectedRoleMeta.category}
+                    </span>
                   </div>
-                )}
-
-                {/* Submit Action Button */}
-                <Button
-                  type="submit"
-                  block
-                  variant="primary"
-                  loading={isAssigning}
-                  loadingText="Asignando Rol..."
-                  disabled={!selectedRole || isAssigning}
-                  className="mt-2 py-3 font-bold text-sm flex items-center justify-center gap-2"
-                >
-                  <ShieldPlus size={18} /> Asignar Rol
-                </Button>
-              </>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                    {selectedRoleMeta.description}
+                  </p>
+                </div>
+              </div>
             )}
-          </form>
+
+            {/* Submit Action Button */}
+            <Button
+              type="submit"
+              block
+              variant="primary"
+              loading={isAssigning}
+              loadingText="Asignando Rol..."
+              disabled={!selectedRole || isAssigning}
+              className="mt-2 py-3 font-bold text-sm flex items-center justify-center gap-2"
+            >
+              <ShieldPlus size={18} /> Asignar Rol
+            </Button>
+          </>
+        )}
+      </form>
     </AppModal>
   );
 };
