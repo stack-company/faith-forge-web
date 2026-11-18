@@ -107,6 +107,7 @@ export const usePermissions = () => {
       ChurchStaffRole.CHURCH_ADMIN,
     ) ||
     (!isExplicitScopedRole && isAccountAdmin);
+  const isChurchAdmin = isAdmin;
   const isStaff =
     isAdmin ||
     activeRoles.has(UserRole.STAFF) ||
@@ -389,6 +390,7 @@ export const usePermissions = () => {
     hasVolunteerRole,
     isSuperAdmin,
     isAdmin,
+    isChurchAdmin,
     isAccountSuperAdmin,
     isAccountAdmin,
     isStaff,

@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.21.1",
+    "type": "patch",
+    "timestamp": "2026-11-18T00:24:28.883Z",
+    "dateFormatted": "17/11/2026 07:24 PM",
+    "title": "Mejoras en el panel administrativo",
+    "changes": [
+      "Organización de accesos y secciones del panel según el rol en la iglesia activa."
+    ]
+  },
+  {
     "version": "3.21.0",
     "type": "minor",
     "timestamp": "2026-11-02T16:53:24.633Z",
