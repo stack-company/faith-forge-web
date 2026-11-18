@@ -68,12 +68,12 @@ const AttendanceTrackingView = lazy(
 const AdminDashboardView = lazy(
   () => import('@/views/admin/AdminDashboardView'),
 );
-const CreateUserView = lazy(() => import('@/views/admin/users/CreateUserView'));
+const CreateUserView = lazy(() => import('@/views/admin/members/CreateMemberView'));
 const UserManagementView = lazy(
-  () => import('@/views/admin/users/UserManagementView'),
+  () => import('@/views/admin/members/MembersManagementView'),
 );
-const UserDetailView = lazy(() => import('@/views/admin/users/UserDetailView'));
-const UpdateUserView = lazy(() => import('@/views/admin/users/UpdateUserView'));
+const UserDetailView = lazy(() => import('@/views/admin/members/MemberDetailView'));
+const UpdateUserView = lazy(() => import('@/views/admin/members/UpdateMemberView'));
 const ChurchMeetingsView = lazy(
   () => import('@/views/admin/meetings/ChurchMeetingsView'),
 );
