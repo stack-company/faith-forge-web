@@ -41,6 +41,7 @@ import {
 import { useChurchTerm, getVolunteerRoleLabel } from '@/libs/hooks/useTerm';
 import { APP_ROUTES } from '@/config/routes';
 import { formatPersonFullName, formatPhoneWithDialCode } from '@/libs/utils/text';
+import { requireActiveChurchId } from '@/libs/utils/tenant';
 import RegisterVolunteerModal from './components/RegisterVolunteerModal';
 import VolunteerDetailDrawer from './components/VolunteerDetailDrawer';
 import { VolunteerApplicationsTab } from './components/VolunteerApplicationsTab';
@@ -64,7 +65,8 @@ const VolunteerDirectoryView: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const churchId = import.meta.env.VITE_CHURCH_ID;
+  const storeChurchId = useAppSelector((state) => state.churchCampusSlice.church?.id);
+  const churchId = requireActiveChurchId(storeChurchId);
 
   const { ministries, areasByMinistry } = useAppSelector((state) => state.ministrySlice);
   const campuses = useAppSelector((state) => state.churchCampusSlice.data);

@@ -163,6 +163,8 @@ export const applyChurchBrandingToDom = (church?: IChurch | null): void => {
  * @returns {string | undefined} Active church UUID if available.
  */
 export const getActiveTenantChurchId = (): string | undefined => {
+  if (resolveTenantHostContext().isSuperAdminHost) return undefined;
+
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(TENANT_BRANDING_CACHE_KEY);
@@ -175,4 +177,18 @@ export const getActiveTenantChurchId = (): string | undefined => {
     }
   }
   return import.meta.env.VITE_CHURCH_ID || undefined;
+};
+
+/**
+ * Resolves the active church ID or throws if no church tenant context is available.
+ *
+ * @param {string | null | undefined} churchIdFromStore - Optional church ID already loaded in Redux state.
+ * @returns {string} Guaranteed active church UUID.
+ */
+export const requireActiveChurchId = (churchIdFromStore?: string | null): string => {
+  const churchId = churchIdFromStore || getActiveTenantChurchId();
+  if (!churchId) {
+    throw new Error('Active church context is required for this operation.');
+  }
+  return churchId;
 };

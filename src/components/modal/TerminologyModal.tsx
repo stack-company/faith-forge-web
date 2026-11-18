@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import AppModal from '@/components/ui/AppModal';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -77,7 +78,7 @@ export const TerminologyModal: React.FC<TerminologyModalProps> = ({
   const [kidsTerms, setKidsTerms] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const targetChurchId = church?.id || import.meta.env.VITE_CHURCH_ID;
+  const targetChurchId = church?.id || getActiveTenantChurchId();
 
   // Asegura la carga de datos de la iglesia al abrir el drawer
   useEffect(() => {

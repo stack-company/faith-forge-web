@@ -3,7 +3,7 @@ import ModalOverlay from '@/components/ui/ModalOverlay';
 import { Clock, ShieldAlert, X, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import { useAppDispatch } from '@/libs/state/redux/hooks';
+import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
 import { CreateVolunteerPermissionGrant } from '@/libs/state/redux/thunks/church/volunteer.thunk';
 import { IUser } from '@/libs/models';
 import {
@@ -17,6 +17,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
 import { formatPersonFullName } from '@/libs/utils/text';
+import { requireActiveChurchId } from '@/libs/utils/tenant';
 import clsx from 'clsx';
 
 interface GrantTemporaryPermissionModalProps {
@@ -51,7 +52,8 @@ export const GrantTemporaryPermissionModal: React.FC<GrantTemporaryPermissionMod
 }) => {
   useModalBackClose(open, onClose);
   const dispatch = useAppDispatch();
-  const churchId = import.meta.env.VITE_CHURCH_ID;
+  const storeChurchId = useAppSelector((state) => state.churchCampusSlice.church?.id);
+  const churchId = requireActiveChurchId(storeChurchId);
 
   const [selectedMinistry, setSelectedMinistry] = useState<string>('ALL');
   const [selectedRole, setSelectedRole] = useState<string>('');
