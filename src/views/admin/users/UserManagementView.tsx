@@ -30,6 +30,8 @@ import {
   useGetChurchCampusesQuery,
   useGetChurchMembersDirectoryQuery,
 } from '@/libs/state/redux/api/churchApi';
+import { useGetGlobalUsersQuery } from '@/libs/state/redux/api/userApi';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import { APP_ROUTES } from '@/config/routes';
 import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
 import { capitalizeWords, parseEntitySearchParams } from '@/libs/utils/text';
@@ -236,6 +238,9 @@ const UserManagementView: React.FC = () => {
   const activeChurchId =
     useAppSelector((state) => state.churchCampusSlice.church?.id) ||
     getActiveTenantChurchId();
+  const { can } = usePermissions();
+  const canManagePlatform = can('platform:manage-churches');
+  const canManageMembers = can('church:manage-settings');
 
   const [debouncedSearchText, setDebouncedSearchText] = useState('');
   const [page, setPage] = useState(1);
@@ -281,9 +286,9 @@ const UserManagementView: React.FC = () => {
 
   const {
     data: directoryData,
-    isLoading,
-    isFetching,
-    refetch,
+    isLoading: isDirectoryLoading,
+    isFetching: isDirectoryFetching,
+    refetch: refetchDirectory,
   } = useGetChurchMembersDirectoryQuery(
     {
       churchId: activeChurchId,
@@ -297,9 +302,31 @@ const UserManagementView: React.FC = () => {
     { skip: !activeChurchId },
   );
 
+  const {
+    data: globalUsersData,
+    isLoading: isGlobalLoading,
+    isFetching: isGlobalFetching,
+    refetch: refetchGlobalUsers,
+  } = useGetGlobalUsersQuery(
+    {
+      page,
+      limit: PAGINATION_REGISTRATION_LIMIT,
+      filterByFirstName: searchFilters.filterByFirstName,
+      filterByLastName: searchFilters.filterByLastName,
+      filterByNationalId: searchFilters.numericId,
+      filterByHasNationalId: hasNationalIdFilter,
+    },
+    { skip: Boolean(activeChurchId) || !canManagePlatform },
+  );
+
+  const activeDirectoryData = activeChurchId ? directoryData : globalUsersData;
+  const isLoading = activeChurchId ? isDirectoryLoading : isGlobalLoading;
+  const isFetching = activeChurchId ? isDirectoryFetching : isGlobalFetching;
+  const refetch = activeChurchId ? refetchDirectory : refetchGlobalUsers;
+
   useEffect(() => {
-    if (!directoryData?.data) return;
-    const incoming = directoryData.data;
+    if (!activeDirectoryData?.data) return;
+    const incoming = activeDirectoryData.data;
     if (page === 1) {
       setUsers(incoming);
     } else {
@@ -309,11 +336,11 @@ const UserManagementView: React.FC = () => {
         return [...prev, ...uniqueNew];
       });
     }
-  }, [directoryData, page]);
+  }, [activeDirectoryData, page]);
 
   const loading = isLoading || (isFetching && page === 1 && users.length === 0);
-  const totalPages = directoryData?.totalPages || 1;
-  const currentPage = directoryData?.currentPage || page;
+  const totalPages = activeDirectoryData?.totalPages || 1;
+  const currentPage = activeDirectoryData?.currentPage || page;
 
   /**
    * Clears search input and immediately resets to first page.
@@ -455,7 +482,7 @@ const UserManagementView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const rightHeaderAction = (
+  const rightHeaderAction = canManageMembers ? (
     <button
       type="button"
       onClick={() => navigate(APP_ROUTES.admin.createUser)}
@@ -464,7 +491,7 @@ const UserManagementView: React.FC = () => {
       <UserPlus size={15} />
       <span>{t('directory.new_user')}</span>
     </button>
-  );
+  ) : undefined;
 
   return (
     <div className="min-h-full bg-slate-50 pb-20 flex flex-col flex-1">
@@ -508,15 +535,17 @@ const UserManagementView: React.FC = () => {
               <span>{t('directory.export_csv')}</span>
             </button>
 
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate(APP_ROUTES.admin.createUser)}
-              className="inline-flex items-center gap-1.5 text-xs shadow-xs"
-            >
-              <UserPlus size={15} />
-              <span>{t('directory.new_user')}</span>
-            </Button>
+            {canManageMembers && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate(APP_ROUTES.admin.createUser)}
+                className="inline-flex items-center gap-1.5 text-xs shadow-xs"
+              >
+                <UserPlus size={15} />
+                <span>{t('directory.new_user')}</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -774,14 +803,16 @@ const UserManagementView: React.FC = () => {
                     ? t('directory.empty_desc_search')
                     : t('directory.empty_desc')}
                 </p>
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => navigate(APP_ROUTES.admin.createUser)}
-                  className="mt-4 py-2 px-4 text-xs font-bold flex items-center gap-1.5 shadow-xs"
-                >
-                  <UserPlus size={15} /> {t('directory.new_user')}
-                </Button>
+                {canManageMembers && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => navigate(APP_ROUTES.admin.createUser)}
+                    className="mt-4 py-2 px-4 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                  >
+                    <UserPlus size={15} /> {t('directory.new_user')}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1011,14 +1042,16 @@ const UserManagementView: React.FC = () => {
                               >
                                 <Eye size={16} />
                               </button>
-                              <button
-                                type="button"
-                                title={t('directory.edit_user')}
-                                onClick={() => navigate(APP_ROUTES.admin.updateUser(user.id))}
-                                className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Pencil size={15} />
-                              </button>
+                              {canManageMembers && (
+                                <button
+                                  type="button"
+                                  title={t('directory.edit_user')}
+                                  onClick={() => navigate(APP_ROUTES.admin.updateUser(user.id))}
+                                  className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

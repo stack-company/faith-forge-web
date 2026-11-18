@@ -18,6 +18,7 @@ const mockUsePermissions = vi.fn();
 const mockGetChurchMembersDirectory = vi.fn();
 const mockCreateChurchMember = vi.fn();
 const mockSearchUserByNationalId = vi.fn();
+const mockGetGlobalUsers = vi.fn();
 const mockCheckChurchMember = vi.fn();
 const mockRefetch = vi.fn();
 
@@ -96,6 +97,8 @@ vi.mock('@/libs/state/redux/api/userApi', () => ({
   useLazySearchUserByNationalIdQuery: () => [
     (args: unknown) => ({ unwrap: () => mockSearchUserByNationalId(args) }),
   ],
+  useGetGlobalUsersQuery: (args: unknown, opts?: { skip?: boolean }) =>
+    mockGetGlobalUsers(args, opts),
 }));
 
 vi.mock('@/components/ui/PullToRefresh', () => ({
@@ -120,6 +123,12 @@ describe('SC-34: User Directory Isolation, Church Member Linking & Global Role R
       isSuperAdmin: false,
       can: (cap: Parameters<typeof hasCapability>[0]) =>
         hasCapability(cap, { isAdmin: true, isSuperAdmin: false } as CapabilityContext),
+    });
+    mockGetGlobalUsers.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      refetch: mockRefetch,
     });
   });
 

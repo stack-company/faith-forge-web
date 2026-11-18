@@ -335,7 +335,12 @@ const CreateUserView: React.FC = () => {
       allowNavigation();
       navigate(APP_ROUTES.admin.userDetail(linkedUser?.id || matchedUser.id));
     } catch (err: any) {
-      toast.error(err?.message || t('users.link_error'));
+      const status = err?.status ?? err?.originalStatus;
+      if (status === 409) {
+        toast.error(t('users.already_member_conflict'));
+      } else {
+        toast.error(err?.data?.message || err?.message || t('users.link_error'));
+      }
     } finally {
       setIsLinkingExisting(false);
     }
@@ -442,7 +447,14 @@ const CreateUserView: React.FC = () => {
         navigate(APP_ROUTES.admin.root);
       }
     } catch (err: any) {
-      toast.error(err?.message || err?.error || 'Error al registrar el usuario');
+      const status = err?.status ?? err?.originalStatus;
+      if (status === 409) {
+        toast.error(t('users.already_member_conflict'));
+      } else {
+        toast.error(
+          err?.data?.message || err?.message || err?.error || t('users.create_error'),
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

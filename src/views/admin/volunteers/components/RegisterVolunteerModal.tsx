@@ -4,11 +4,13 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { IUser } from '@/libs/models';
 import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
-import { GetUsers } from '@/libs/state/redux/thunks/user/user.thunk';
+import { useLazyGetChurchMembersDirectoryQuery } from '@/libs/state/redux/api/churchApi';
 import { CreateVolunteer, GetVolunteers } from '@/libs/state/redux/thunks/church/volunteer.thunk';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
 import { useChurchTerm } from '@/libs/hooks/useTerm';
-import { formatPersonFullName } from '@/libs/utils/text';
+import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
+import { formatPersonFullName, parseEntitySearchParams } from '@/libs/utils/text';
 import { toast } from 'sonner';
 import { UserPlus, User as UserIcon } from 'lucide-react';
 
@@ -32,6 +34,10 @@ export const RegisterVolunteerModal: React.FC<RegisterVolunteerModalProps> = ({
   useModalBackClose(open, () => onOpenChange(false));
 
   const dispatch = useAppDispatch();
+  const [fetchChurchMembers] = useLazyGetChurchMembersDirectoryQuery();
+  const activeChurchId =
+    useAppSelector((state) => state.churchCampusSlice.church?.id) ||
+    getActiveTenantChurchId();
   const existingVolunteers = useAppSelector((state) => state.volunteerSlice.volunteers.data);
   const volunteerTerm = useChurchTerm('volunteer');
   const volunteersTerm = useChurchTerm('volunteers');
@@ -65,7 +71,16 @@ export const RegisterVolunteerModal: React.FC<RegisterVolunteerModalProps> = ({
     setSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await dispatch(GetUsers({ findText: searchText.trim() })).unwrap();
+        const { filterByFirstName, filterByLastName, numericId } =
+          parseEntitySearchParams(searchText.trim());
+        const res = await fetchChurchMembers({
+          churchId: activeChurchId,
+          page: 1,
+          limit: PAGINATION_REGISTRATION_LIMIT,
+          filterByFirstName,
+          filterByLastName,
+          filterByNationalId: numericId,
+        }).unwrap();
         const usersList: IUser[] = res?.data || [];
         setSearchResults(usersList);
       } catch {
@@ -80,7 +95,7 @@ export const RegisterVolunteerModal: React.FC<RegisterVolunteerModalProps> = ({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchText, dispatch]);
+  }, [searchText, activeChurchId, fetchChurchMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

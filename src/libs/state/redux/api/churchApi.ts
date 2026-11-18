@@ -33,6 +33,7 @@ import {
   IChurchStaff,
   ICreateUser,
   IMinistry,
+  IUpdateUser,
   IUser,
   IMinistryAnalyticsResponse,
   IMinistryAttendanceMatrixResponse,
@@ -327,6 +328,23 @@ export const churchApi = baseApi.injectEndpoints({
         headers: churchId ? { 'x-church-id': churchId } : undefined,
       }),
       invalidatesTags: [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    updateChurchMember: builder.mutation<
+      IUser,
+      { id: string; data: IUpdateUser; churchId?: string }
+    >({
+      query: ({ id, data, churchId }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: `/church/members/${id}`,
+        method: HttpRequestMethod.PUT,
+        data,
+        headers: churchId ? { 'x-church-id': churchId } : undefined,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'ChurchMember', id },
+        { type: 'ChurchMember', id: 'LIST' },
+      ],
     }),
 
     getChurchStaff: builder.query<IChurchStaff[], { churchId: string }>({
@@ -1248,6 +1266,7 @@ export const {
   useGetChurchMembersDirectoryQuery,
   useLazyGetChurchMembersDirectoryQuery,
   useCreateChurchMemberMutation,
+  useUpdateChurchMemberMutation,
   useGetChurchStaffQuery,
   useLazyGetChurchStaffQuery,
   useUpdateChurchStaffRolesMutation,

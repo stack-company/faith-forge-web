@@ -6,7 +6,8 @@
     "dateFormatted": "17/11/2026 07:24 PM",
     "title": "Mejoras en el panel administrativo",
     "changes": [
-      "Organización de accesos y secciones del panel según el rol en la iglesia activa."
+      "Organización de accesos y secciones del panel según el rol en la iglesia activa.",
+      "Mejoras en la búsqueda, edición y asignación de miembros dentro de la iglesia activa."
     ]
   },
   {

@@ -870,6 +870,11 @@
     "linking_button": "Vinculando...",
     "link_success": "¡Persona vinculada a la iglesia con éxito!",
     "link_error": "Error al vincular la persona a esta iglesia",
+    "already_member_conflict": "Esta persona ya es miembro activo de esta iglesia.",
+    "create_error": "Error al registrar el usuario",
+    "updating": "Actualizando información del usuario...",
+    "update_success": "¡Usuario actualizado exitosamente!",
+    "update_error": "Error al actualizar el usuario",
     "church_staff_delegation_note": "La delegación de administradores y equipo administrativo de esta iglesia se gestiona desde el equipo de la iglesia activa (ChurchStaff)."
   }
 }

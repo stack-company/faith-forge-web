@@ -26,9 +26,11 @@ import {
   CreateVolunteerAssignment,
   GetVolunteerAssignments,
 } from '@/libs/state/redux/thunks/church/volunteer.thunk';
-import { GetUsers } from '@/libs/state/redux/thunks/user/user.thunk';
+import { useLazyGetChurchMembersDirectoryQuery } from '@/libs/state/redux/api/churchApi';
+import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { microserviceApiRequest } from '@/libs/utils/http';
-import { formatPersonFullName } from '@/libs/utils/text';
+import { formatPersonFullName, parseEntitySearchParams } from '@/libs/utils/text';
 import clsx from 'clsx';
 import {
   Award,
@@ -128,6 +130,7 @@ export const AssignVolunteerDrawer: React.FC<AssignVolunteerDrawerProps> = ({
   useModalBackClose(open, () => onOpenChange(false));
 
   const dispatch = useAppDispatch();
+  const [fetchChurchMembers] = useLazyGetChurchMembersDirectoryQuery();
   const { token } = useAppSelector((state) => state.authSlice);
   const volunteersState = useAppSelector(
     (state) => state.volunteerSlice.volunteers.data,
@@ -405,9 +408,17 @@ export const AssignVolunteerDrawer: React.FC<AssignVolunteerDrawerProps> = ({
     setSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const res = await dispatch(
-          GetUsers({ findText: searchText.trim() }),
-        ).unwrap();
+        const activeChurchId = getActiveTenantChurchId();
+        const { filterByFirstName, filterByLastName, numericId } =
+          parseEntitySearchParams(searchText.trim());
+        const res = await fetchChurchMembers({
+          churchId: activeChurchId,
+          page: 1,
+          limit: PAGINATION_REGISTRATION_LIMIT,
+          filterByFirstName,
+          filterByLastName,
+          filterByNationalId: numericId,
+        }).unwrap();
         const usersList: IUser[] = res?.data || [];
         setSearchResults(usersList);
       } catch {
@@ -422,7 +433,7 @@ export const AssignVolunteerDrawer: React.FC<AssignVolunteerDrawerProps> = ({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchText, dispatch]);
+  }, [searchText, fetchChurchMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
