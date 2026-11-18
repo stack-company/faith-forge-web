@@ -109,7 +109,7 @@ vi.mock('@/components/ui/PageHeader', () => ({
   default: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
-describe('SC-34: User Directory Isolation, Church Member Linking & Global Role Removal', () => {
+describe('User Directory Isolation, Church Member Linking & Global Role Removal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAppSelector.mockImplementation((selector) =>
@@ -132,7 +132,7 @@ describe('SC-34: User Directory Isolation, Church Member Linking & Global Role R
     });
   });
 
-  it('HP-01 / AC-1: UserManagementView queries /church/members scoped to active churchId and refreshes on church switch', () => {
+  it('UserManagementView queries /church/members scoped to active churchId and refreshes on church switch', () => {
     const churchAMembers = [
       {
         id: 'user-a1',
@@ -199,7 +199,7 @@ describe('SC-34: User Directory Isolation, Church Member Linking & Global Role R
     expect(screen.getAllByText('Carlos Ruiz').length).toBeGreaterThan(0);
   });
 
-  it('HP-02 / AC-2: CreateUserView detects existing platform user from another church and links in one click', async () => {
+  it('CreateUserView detects existing platform user from another church and links in one click', async () => {
     const existingPlatformUser = {
       id: 'user-ext-1',
       firstName: 'Laura',
@@ -251,7 +251,7 @@ describe('SC-34: User Directory Isolation, Church Member Linking & Global Role R
     });
   });
 
-  it('CB-01: CreateUserView shows already-member warning with profile link and disables submit', async () => {
+  it('CreateUserView shows already-member warning with profile link and disables submit', async () => {
     const existingMember = {
       id: 'user-mem-1',
       firstName: 'Pedro',
@@ -294,7 +294,7 @@ describe('SC-34: User Directory Isolation, Church Member Linking & Global Role R
     expect(submitBtn).toBeDisabled();
   });
 
-  it('AC-3: MINISTRY_ROLE_GROUPS excludes global ADMIN/STAFF and AssignUserRoleModal does not offer them', () => {
+  it('MINISTRY_ROLE_GROUPS excludes global ADMIN/STAFF and AssignUserRoleModal does not offer them', () => {
     const allGroupRoles = MINISTRY_ROLE_GROUPS.flatMap((g) => g.roles);
     expect(allGroupRoles).not.toContain(UserRole.ADMIN);
     expect(allGroupRoles).not.toContain(UserRole.STAFF);

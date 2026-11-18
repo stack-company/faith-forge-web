@@ -59,13 +59,13 @@ const defaultState = {
   },
 };
 
-describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isolation', () => {
+describe('Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isolation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAppSelector.mockImplementation((selector) => selector(defaultState));
   });
 
-  it('HP-01: CHURCH_ADMIN sees active church name and church sections, but NOT system operations in AdminSidebar', () => {
+  it('CHURCH_ADMIN sees active church name and church sections, but NOT system operations in AdminSidebar', () => {
     const churchAdminCtx = buildCapabilityContext(true, false);
     mockUsePermissions.mockReturnValue({
       ...churchAdminCtx,
@@ -88,7 +88,7 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     expect(screen.queryByText('admin:layout.sidebar.system_operations')).not.toBeInTheDocument();
   });
 
-  it('HP-02: SUPER_ADMIN does NOT see system operations in AdminSidebar (moved to SuperAdminLayout)', () => {
+  it('SUPER_ADMIN does NOT see system operations in AdminSidebar (moved to SuperAdminLayout)', () => {
     const superAdminCtx = buildCapabilityContext(true, true);
     mockUsePermissions.mockReturnValue({
       ...superAdminCtx,
@@ -109,7 +109,7 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     expect(screen.queryByText('admin:layout.sidebar.system_operations')).not.toBeInTheDocument();
   });
 
-  it('CB-01: User without admin:manage-system-operations navigating to /system is redirected to /', () => {
+  it('User without admin:manage-system-operations navigating to /system is redirected to /', () => {
     const churchAdminCtx = buildCapabilityContext(true, false);
     mockUsePermissions.mockReturnValue({
       ...churchAdminCtx,
@@ -129,7 +129,7 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     expect(screen.queryByTestId('code-migrations-section')).not.toBeInTheDocument();
   });
 
-  it('HP-01: SUPER_ADMIN accessing /system renders AdminSystemOperationsView', () => {
+  it('SUPER_ADMIN accessing /system renders AdminSystemOperationsView', () => {
     const superAdminCtx = buildCapabilityContext(true, true);
     mockUsePermissions.mockReturnValue({
       ...superAdminCtx,

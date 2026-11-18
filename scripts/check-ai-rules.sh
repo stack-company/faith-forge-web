@@ -25,6 +25,7 @@ check "One-line if must not have braces" 'if\s*\([^)]*\)\s*\{[^}\n]+;?\s*\}' src
 check "Raw canManageChurchReports is forbidden in views/components (use can('reports:...'))" '\bcanManageChurchReports\b' src/views src/components --include='*.tsx'
 check "Raw isServidor is forbidden in views/components (use can('...'))" '\bisServidor\b' src/views src/components --include='*.tsx'
 check "Modals must be named *Modal, not *Drawer in src/components/modal" 'export.*Drawer\b' src/components/modal --include='*.tsx'
+check "Test descriptions must not include ticket/case prefixes (SC-xx, HP-xx, CB-xx, AC-xx)" '(describe|it|test)\(\s*["'\''`](SC|HP|CB|CP|TC|AC)-[0-9]+' src --include='*.test.ts' --include='*.test.tsx' --include='*.spec.ts' --include='*.spec.tsx'
 
 # New createAsyncThunk in staged changes (skipped when nothing is staged / not a git repo)
 if git rev-parse --git-dir >/dev/null 2>&1; then

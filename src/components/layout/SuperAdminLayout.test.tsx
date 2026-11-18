@@ -54,13 +54,13 @@ const defaultState = {
   },
 };
 
-describe('SC-46: SuperAdminLayout hosts /system exclusively', () => {
+describe('SuperAdminLayout hosts /system exclusively', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAppSelector.mockImplementation((selector) => selector(defaultState));
   });
 
-  it('HP-01: SUPER_ADMIN sees Churches and System Operations in SuperAdminLayout and can operate migrations & cache on /system', () => {
+  it('SUPER_ADMIN sees Churches and System Operations in SuperAdminLayout and can operate migrations & cache on /system', () => {
     const superAdminCtx = buildCapabilityContext(true, true);
     mockUsePermissions.mockReturnValue({
       ...superAdminCtx,
@@ -89,7 +89,7 @@ describe('SC-46: SuperAdminLayout hosts /system exclusively', () => {
     expect(screen.getByTestId('cache-management-section')).toBeInTheDocument();
   });
 
-  it('CB-01: User without platform/system capabilities is redirected to login from SuperAdminLayout', () => {
+  it('User without platform/system capabilities is redirected to login from SuperAdminLayout', () => {
     const churchAdminCtx = buildCapabilityContext(true, false);
     mockUsePermissions.mockReturnValue({
       ...churchAdminCtx,
