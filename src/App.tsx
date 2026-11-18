@@ -413,6 +413,10 @@ function App() {
                     element={<ChurchesManagementView />}
                   />
                   <Route
+                    path={APP_ROUTES.superAdmin.systemOperations}
+                    element={<AdminSystemOperationsView />}
+                  />
+                  <Route
                     path="*"
                     element={
                       <Navigate to={APP_ROUTES.superAdmin.root} replace />
@@ -557,8 +561,8 @@ function App() {
                   element={<VolunteerApplicationsView />}
                 />
                 <Route
-                  path={APP_ROUTES.admin.systemOperations}
-                  element={<AdminSystemOperationsView />}
+                  path="/admin/system"
+                  element={<Navigate to={APP_ROUTES.admin.root} replace />}
                 />
               </Route>
 

@@ -12,7 +12,6 @@ import {
   UserPlus,
   Sparkles,
   RotateCcw,
-  SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
@@ -24,7 +23,6 @@ import { useTranslation } from 'react-i18next';
 import { APP_ROUTES } from '@/config/routes';
 import { useChurchTerm } from '@/libs/hooks/useTerm';
 import { usePermissions } from '@/libs/hooks/usePermissions';
-import { Can } from '@/components/auth/Can';
 import { useAppSelector } from '@/libs/state/redux/hooks';
 import { APP_VERSION } from '@/constants/version';
 
@@ -297,38 +295,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </h2>
           )}
           <div className="space-y-0.5">
-            <Can capability="admin:manage-system-operations">
-              <NavLink
-                to={APP_ROUTES.admin.systemOperations}
-                onClick={handleNavClick}
-                title={collapsed && !isMobileDrawer ? t('admin:layout.sidebar.system_operations') : undefined}
-                className={clsx(
-                  'group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                  location.pathname.startsWith(APP_ROUTES.admin.systemOperations)
-                    ? 'bg-indigo-50/70 text-indigo-700 font-bold shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
-                  collapsed && !isMobileDrawer && 'justify-center px-0'
-                )}
-              >
-                <div
-                  className={clsx(
-                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                    location.pathname.startsWith(APP_ROUTES.admin.systemOperations)
-                      ? 'text-indigo-600'
-                      : 'text-slate-400 group-hover:text-slate-700'
-                  )}
-                >
-                  <SlidersHorizontal size={18} />
-                </div>
-                {(!collapsed || isMobileDrawer) && (
-                  <span className="truncate flex-1">{t('admin:layout.sidebar.system_operations')}</span>
-                )}
-                {(!collapsed || isMobileDrawer) && location.pathname.startsWith(APP_ROUTES.admin.systemOperations) && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 ml-auto" />
-                )}
-              </NavLink>
-            </Can>
-
             <button
               type="button"
               onClick={() => {

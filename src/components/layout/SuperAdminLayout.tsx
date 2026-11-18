@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   ChevronRight,
   Globe,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
@@ -43,6 +44,7 @@ const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
   const [hasOpenedProfile, setHasOpenedProfile] = useState(false);
 
   const canManageChurches = can('platform:manage-churches');
+  const canManageSystemOperations = can('admin:manage-system-operations');
 
   useEffect(() => {
     delete document.body.dataset.role;
@@ -71,6 +73,9 @@ const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
   const isChurchesActive =
     location.pathname === APP_ROUTES.superAdmin.root ||
     location.pathname.startsWith(APP_ROUTES.superAdmin.churches);
+  const isSystemOperationsActive = location.pathname.startsWith(
+    APP_ROUTES.superAdmin.systemOperations,
+  );
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-slate-50 text-slate-900 font-sans theme-SUPER_ADMIN">
@@ -107,6 +112,22 @@ const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
               <Building2 size={18} />
               <span>{t('admin:super_admin.nav_churches')}</span>
             </button>
+
+            {canManageSystemOperations && (
+              <button
+                type="button"
+                onClick={() => navigate(APP_ROUTES.superAdmin.systemOperations)}
+                className={clsx(
+                  'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer',
+                  isSystemOperationsActive
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-800/70 hover:text-white',
+                )}
+              >
+                <SlidersHorizontal size={18} />
+                <span>{t('admin:super_admin.nav_system_operations')}</span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -131,7 +152,9 @@ const SuperAdminLayout: React.FC<SuperAdminLayoutProps> = ({ children }) => {
             </span>
             <ChevronRight size={14} className="text-slate-300 shrink-0" />
             <span className="text-slate-500 font-medium truncate">
-              {t('admin:super_admin.nav_churches')}
+              {isSystemOperationsActive
+                ? t('admin:super_admin.nav_system_operations')
+                : t('admin:super_admin.nav_churches')}
             </span>
           </div>
 

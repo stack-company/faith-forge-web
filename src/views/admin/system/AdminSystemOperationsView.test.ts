@@ -4,8 +4,8 @@ import { hasCapability, CapabilityContext } from '@/libs/utils/auth/capabilities
 import { APP_ROUTES } from '@/config/routes';
 
 describe('AdminSystemOperations & Code Migrations', () => {
-  it('registers the expected system operations route in English', () => {
-    expect(APP_ROUTES.admin.systemOperations).toBe('/admin/system');
+  it('registers the expected system operations route in English under superAdmin', () => {
+    expect(APP_ROUTES.superAdmin.systemOperations).toBe('/system');
   });
 
   it('contains the monorepo cheat-sheet migrations with valid microservices', () => {

@@ -139,7 +139,7 @@ vi.mock('@/components/ui/AppModal', () => ({
     open ? <div>{children}</div> : null,
 }));
 
-describe('SC-44: Church Members RTK Query Migration', () => {
+describe('Church Members RTK Query Migration', () => {
   const defaultState = {
     authSlice: { token: 'token-123', user: { id: 'admin-1', roles: [UserRole.ADMIN] } },
     churchCampusSlice: {
@@ -176,7 +176,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     });
   });
 
-  it('HP-01: RegisterVolunteerModal searches via GET /church/members with active churchId', async () => {
+  it('RegisterVolunteerModal searches via GET /church/members with active churchId', async () => {
     mockLazyGetChurchMembers.mockResolvedValue({
       data: [
         {
@@ -214,7 +214,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     expect(await screen.findByText('Marta Diaz')).toBeInTheDocument();
   });
 
-  it('HP-01: AssignVolunteerDrawer searches via GET /church/members with active churchId', async () => {
+  it('AssignVolunteerDrawer searches via GET /church/members with active churchId', async () => {
     mockLazyGetChurchMembers.mockResolvedValue({
       data: [
         {
@@ -256,7 +256,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     expect(await screen.findByText('Pedro Lopez')).toBeInTheDocument();
   });
 
-  it('HP-02: UpdateUserView submits updates via PUT /church/members/:id in church context', async () => {
+  it('UpdateUserView submits updates via PUT /church/members/:id in church context', async () => {
     const member = {
       id: 'member-edit-1',
       firstName: 'Sofia',
@@ -305,7 +305,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     });
   });
 
-  it('HP-03: SUPER_ADMIN in global view (no activeChurchId) queries GET /users', () => {
+  it('SUPER_ADMIN in global view (no activeChurchId) queries GET /users', () => {
     mockGetActiveTenantChurchId.mockReturnValue(undefined);
     const globalState = {
       authSlice: { token: 'token-sa', user: { id: 'sa-1', roles: [UserRole.SUPER_ADMIN] } },
@@ -353,7 +353,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     expect(screen.getAllByText('Global Admin').length).toBeGreaterThan(0);
   });
 
-  it('CB-01: CreateUserView shows translated 409 Conflict feedback without breaking the form', async () => {
+  it('CreateUserView shows translated 409 Conflict feedback without breaking the form', async () => {
     mockSearchUserByNationalId.mockResolvedValue({
       id: 'existing-u1',
       firstName: 'Luis',
@@ -388,7 +388,7 @@ describe('SC-44: Church Members RTK Query Migration', () => {
     expect(nationalIdInput).toHaveValue('445566');
   });
 
-  it('CB-02: UserManagementView hides restricted create and edit actions when can("church:manage-settings") is false', () => {
+  it('UserManagementView hides restricted create and edit actions when can("church:manage-settings") is false', () => {
     mockUsePermissions.mockReturnValue({
       isAdmin: false,
       isSuperAdmin: false,

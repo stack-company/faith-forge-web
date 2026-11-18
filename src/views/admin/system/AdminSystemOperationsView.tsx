@@ -17,9 +17,9 @@ import CacheManagementSection from './components/CacheManagementSection';
 type OperationsTab = 'migrations' | 'cache';
 
 /**
- * Main System Operations View at /admin/system.
+ * Main System Operations View at /system.
  * Unifies technical maintenance, segmented cache clearing, and on-demand code migrations
- * for Super Administrators and General Administrators.
+ * for platform Super Administrators.
  *
  * @returns {JSX.Element} Rendered admin system operations view.
  */
@@ -46,14 +46,14 @@ export const AdminSystemOperationsView: React.FC = () => {
     setSearchParams({ tab });
   };
 
-  if (!canManageOperations) return <Navigate to={APP_ROUTES.admin.root} replace />;
+  if (!canManageOperations) return <Navigate to={APP_ROUTES.superAdmin.root} replace />;
 
   return (
     <div className="min-h-full flex-1 w-full bg-slate-50/60 pb-20">
       {/* Mobile Top Header */}
       <PageHeader
         title={t('admin:system_operations.header_title')}
-        onBack={() => navigate(APP_ROUTES.admin.root)}
+        onBack={() => navigate(APP_ROUTES.superAdmin.root)}
         className="lg:hidden"
       />
 
