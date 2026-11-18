@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { EntityState, IChurch } from '@/libs/models/Church';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEV_TENANT_OVERRIDE_KEY,
   TENANT_BRANDING_CACHE_KEY,
@@ -8,7 +9,6 @@ import {
   getActiveTenantChurchId,
   resolveTenantHostContext,
 } from './tenant';
-import { EntityState, IChurch } from '@/libs/models/Church';
 
 const setWindowLocation = (url: string) => {
   const parsed = new URL(url);
@@ -42,7 +42,9 @@ describe('tenant host resolution and URL builders', () => {
       isSuperAdminHost: false,
       tenantSlug: 'iglesia-norte',
     });
-    expect(sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)).toBe('iglesia-norte');
+    expect(sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)).toBe(
+      'iglesia-norte',
+    );
 
     // Simulate React Router navigating to /admin/campuses without ?tenant= in the URL
     setWindowLocation('http://localhost:3000/admin/campuses');
@@ -98,7 +100,9 @@ describe('tenant host resolution and URL builders', () => {
 
   it('builds /admin?tenant=<slug> in local environments and subdomain URL in production', () => {
     setWindowLocation('http://localhost:3000/?tenant=admin');
-    expect(buildTenantAdminUrl({ slug: 'iglesia-norte' })).toBe('/admin?tenant=iglesia-norte');
+    expect(buildTenantAdminUrl({ slug: 'iglesia-norte' })).toBe(
+      '/admin?tenant=iglesia-norte',
+    );
     expect(buildTenantAdminUrl({ slug: '' })).toBe('#');
     expect(buildSuperAdminConsoleUrl()).toBe('/?tenant=admin');
 
@@ -110,5 +114,28 @@ describe('tenant host resolution and URL builders', () => {
 
     setWindowLocation('https://iglesia-norte.lumbrela.app/admin');
     expect(buildSuperAdminConsoleUrl()).toBe('https://admin.lumbrela.app');
+  });
+
+  it('allows ?tenant=<slug> override on admin.localhost and returns to SuperAdmin when ?tenant=admin is passed', () => {
+    setWindowLocation('http://admin.localhost:3000/');
+    expect(resolveTenantHostContext()).toEqual({
+      hostname: 'admin.localhost',
+      isSuperAdminHost: true,
+      tenantSlug: null,
+    });
+
+    setWindowLocation('http://admin.localhost:3000/admin?tenant=riosdevida');
+    expect(resolveTenantHostContext()).toEqual({
+      hostname: 'admin.localhost',
+      isSuperAdminHost: false,
+      tenantSlug: 'riosdevida',
+    });
+
+    setWindowLocation('http://admin.localhost:3000/?tenant=admin');
+    expect(resolveTenantHostContext()).toEqual({
+      hostname: 'admin.localhost',
+      isSuperAdminHost: true,
+      tenantSlug: null,
+    });
   });
 });

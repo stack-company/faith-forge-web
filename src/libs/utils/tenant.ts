@@ -45,11 +45,7 @@ const getRootDomain = (hostname: string): string => {
  */
 export const resolveTenantHostContext = (): TenantHostContext => {
   if (typeof window === 'undefined') {
-    return {
-      hostname: '',
-      isSuperAdminHost: false,
-      tenantSlug: null,
-    };
+    return { hostname: '', isSuperAdminHost: false, tenantSlug: null };
   }
 
   const rawHostname = window.location.hostname.toLowerCase();
@@ -57,7 +53,11 @@ export const resolveTenantHostContext = (): TenantHostContext => {
   const queryTenant = searchParams.get('tenant')?.trim().toLowerCase() || null;
   const isLocal = isLocalTenantHost(rawHostname);
 
-  if (isLocal && queryTenant && (queryTenant === 'admin' || !RESERVED_SUBDOMAINS.has(queryTenant))) {
+  if (
+    isLocal &&
+    queryTenant &&
+    (queryTenant === 'admin' || !RESERVED_SUBDOMAINS.has(queryTenant))
+  ) {
     try {
       sessionStorage.setItem(DEV_TENANT_OVERRIDE_KEY, queryTenant);
     } catch {
@@ -68,18 +68,16 @@ export const resolveTenantHostContext = (): TenantHostContext => {
   let effectiveQueryTenant = queryTenant;
   if (!effectiveQueryTenant && isLocal) {
     try {
-      effectiveQueryTenant = sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)?.trim().toLowerCase() || null;
+      effectiveQueryTenant =
+        sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)?.trim().toLowerCase() ||
+        null;
     } catch {
       effectiveQueryTenant = null;
     }
   }
 
-  if (effectiveQueryTenant === 'admin' || rawHostname.startsWith('admin.')) {
-    return {
-      hostname: rawHostname,
-      isSuperAdminHost: true,
-      tenantSlug: null,
-    };
+  if (effectiveQueryTenant === 'admin') {
+    return { hostname: rawHostname, isSuperAdminHost: true, tenantSlug: null };
   }
 
   if (effectiveQueryTenant && !RESERVED_SUBDOMAINS.has(effectiveQueryTenant)) {
@@ -90,9 +88,16 @@ export const resolveTenantHostContext = (): TenantHostContext => {
     };
   }
 
+  if (rawHostname.startsWith('admin.')) {
+    return { hostname: rawHostname, isSuperAdminHost: true, tenantSlug: null };
+  }
+
   if (isLocal) {
     const localParts = rawHostname.split('.');
-    if (localParts.length >= 2 && localParts[localParts.length - 1] === 'localhost') {
+    if (
+      localParts.length >= 2 &&
+      localParts[localParts.length - 1] === 'localhost'
+    ) {
       const candidate = localParts[0];
       if (candidate === 'admin') {
         return {
@@ -109,11 +114,7 @@ export const resolveTenantHostContext = (): TenantHostContext => {
         };
       }
     }
-    return {
-      hostname: rawHostname,
-      isSuperAdminHost: false,
-      tenantSlug: null,
-    };
+    return { hostname: rawHostname, isSuperAdminHost: false, tenantSlug: null };
   }
 
   const parts = rawHostname.split('.');
@@ -128,11 +129,7 @@ export const resolveTenantHostContext = (): TenantHostContext => {
     }
   }
 
-  return {
-    hostname: rawHostname,
-    isSuperAdminHost: false,
-    tenantSlug: null,
-  };
+  return { hostname: rawHostname, isSuperAdminHost: false, tenantSlug: null };
 };
 
 /**
@@ -149,9 +146,8 @@ export const buildTenantAdminUrl = (church: Pick<IChurch, 'slug'>): string => {
   const { protocol, hostname } = window.location;
   const normalizedHost = hostname.toLowerCase();
 
-  if (isLocalTenantHost(normalizedHost)) {
+  if (isLocalTenantHost(normalizedHost))
     return `/admin?tenant=${encodeURIComponent(slug)}`;
-  }
 
   const rootDomain = getRootDomain(normalizedHost);
   return `${protocol}//${slug}.${rootDomain}/admin`;
@@ -169,9 +165,7 @@ export const buildSuperAdminConsoleUrl = (): string => {
   const { protocol, hostname } = window.location;
   const normalizedHost = hostname.toLowerCase();
 
-  if (isLocalTenantHost(normalizedHost)) {
-    return '/?tenant=admin';
-  }
+  if (isLocalTenantHost(normalizedHost)) return '/?tenant=admin';
 
   const rootDomain = getRootDomain(normalizedHost);
   return `${protocol}//admin.${rootDomain}`;
@@ -208,10 +202,15 @@ export const applyChurchBrandingToDom = (church?: IChurch | null): void => {
   setMetaContent('meta[name="application-name"]', shortName);
   setMetaContent('meta[name="apple-mobile-web-app-title"]', shortName);
 
-  const appleIconLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-  if (appleIconLink && appleTouchIconUrl) appleIconLink.href = appleTouchIconUrl;
+  const appleIconLink = document.querySelector<HTMLLinkElement>(
+    'link[rel="apple-touch-icon"]',
+  );
+  if (appleIconLink && appleTouchIconUrl)
+    appleIconLink.href = appleTouchIconUrl;
 
-  const icon192Link = document.querySelector<HTMLLinkElement>('link[rel="icon"][sizes="192x192"]');
+  const icon192Link = document.querySelector<HTMLLinkElement>(
+    'link[rel="icon"][sizes="192x192"]',
+  );
   if (icon192Link && icon192Url) icon192Link.href = icon192Url;
 
   document.documentElement.style.setProperty('--church-primary', primaryColor);
@@ -252,16 +251,23 @@ export const getActiveTenantChurchId = (): string | undefined => {
     try {
       const cached = localStorage.getItem(TENANT_BRANDING_CACHE_KEY);
       if (cached) {
-        const parsed = JSON.parse(cached) as { churchId?: string; slug?: string };
+        const parsed = JSON.parse(cached) as {
+          churchId?: string;
+          slug?: string;
+        };
         const matchesTenantSlug =
-          !hostContext.tenantSlug || !parsed?.slug || parsed.slug === hostContext.tenantSlug;
+          !hostContext.tenantSlug ||
+          !parsed?.slug ||
+          parsed.slug === hostContext.tenantSlug;
         if (parsed?.churchId && matchesTenantSlug) return parsed.churchId;
       }
     } catch {
       // Ignore parse errors
     }
   }
-  return hostContext.tenantSlug ? undefined : import.meta.env.VITE_CHURCH_ID || undefined;
+  return hostContext.tenantSlug
+    ? undefined
+    : import.meta.env.VITE_CHURCH_ID || undefined;
 };
 
 /**
@@ -270,10 +276,11 @@ export const getActiveTenantChurchId = (): string | undefined => {
  * @param {string | null | undefined} churchIdFromStore - Optional church ID already loaded in Redux state.
  * @returns {string} Guaranteed active church UUID.
  */
-export const getActiveChurchId = (churchIdFromStore?: string | null): string => {
+export const getActiveChurchId = (
+  churchIdFromStore?: string | null,
+): string => {
   const churchId = churchIdFromStore || getActiveTenantChurchId();
-  if (!churchId) {
+  if (!churchId)
     throw new Error('Active church context is required for this operation.');
-  }
   return churchId;
 };
