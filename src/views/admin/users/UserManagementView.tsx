@@ -25,11 +25,15 @@ import PageHeader from '@/components/ui/PageHeader';
 import { CellListSkeleton } from '@/components/ui/DetailSkeleton';
 import EndOfListFunnyBadge from '@/components/ui/EndOfListFunnyBadge';
 import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
-import { GetUsers, GetMoreUsers } from '@/libs/state/redux/thunks/user/user.thunk';
 import { updateCurrentUser } from '@/libs/state/redux/slices/user/users.slice';
-import { useGetChurchCampusesQuery } from '@/libs/state/redux/api/churchApi';
+import {
+  useGetChurchCampusesQuery,
+  useGetChurchMembersDirectoryQuery,
+} from '@/libs/state/redux/api/churchApi';
 import { APP_ROUTES } from '@/config/routes';
-import { capitalizeWords } from '@/libs/utils/text';
+import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
+import { capitalizeWords, parseEntitySearchParams } from '@/libs/utils/text';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { formatPhoneDisplay } from '@/libs/utils/phone';
 import { IUser, UserState } from '@/libs/models';
 import { UserRole, ALL_SYSTEM_ROLES_METADATA, AppRole } from '@/libs/utils/auth';
@@ -229,39 +233,31 @@ const UserManagementView: React.FC = () => {
     };
   }, [setSearchAvailable, registerSearchFocusHandler]);
 
-  const { data: users, loading, currentPage, totalPages, needsRefresh } = useAppSelector(
-    (state) => state.userSlice
-  );
+  const activeChurchId =
+    useAppSelector((state) => state.churchCampusSlice.church?.id) ||
+    getActiveTenantChurchId();
+
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
+  const [page, setPage] = useState(1);
+  const [users, setUsers] = useState<IUser[]>([]);
 
   const hasNationalIdFilter = quickFilter === 'without_document' ? false : true;
-  const prevSearchTextRef = useRef<string | null>(null);
-  const prevHasNationalIdRef = useRef<boolean>(hasNationalIdFilter);
 
-  // Search logic with debounce and automatic refresh on mutations
+  // Debounce search text
   useEffect(() => {
-    const isFirstMount = prevSearchTextRef.current === null;
-    const isSearchChanged = !isFirstMount && searchText !== prevSearchTextRef.current;
-    const isDocFilterChanged = !isFirstMount && hasNationalIdFilter !== prevHasNationalIdRef.current;
-    prevSearchTextRef.current = searchText;
-    prevHasNationalIdRef.current = hasNationalIdFilter;
-
-    if (isFirstMount && users.length > 0 && !needsRefresh) return;
-    if (!isFirstMount && !isSearchChanged && !isDocFilterChanged && !needsRefresh && users.length > 0) return;
-
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
 
-    const delay = isSearchChanged && searchText.trim().length > 0 ? 400 : 0;
-
-    if (delay === 0) {
-      dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter }));
-    } else {
-      timeoutRef.current = setTimeout(() => {
-        dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter }));
-      }, delay);
+    if (searchText.trim().length === 0) {
+      setDebouncedSearchText('');
+      return;
     }
+
+    timeoutRef.current = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 400);
 
     return () => {
       if (timeoutRef.current) {
@@ -269,19 +265,67 @@ const UserManagementView: React.FC = () => {
         timeoutRef.current = null;
       }
     };
-  }, [searchText, hasNationalIdFilter, dispatch, needsRefresh, users.length]);
+  }, [searchText]);
+
+  // Reset pagination & cached rows when active church or filters change
+  useEffect(() => {
+    setPage(1);
+    setUsers([]);
+    setSelectedUserIds(new Set());
+  }, [activeChurchId, debouncedSearchText, hasNationalIdFilter]);
+
+  const searchFilters = useMemo(
+    () => parseEntitySearchParams(debouncedSearchText),
+    [debouncedSearchText],
+  );
+
+  const {
+    data: directoryData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useGetChurchMembersDirectoryQuery(
+    {
+      churchId: activeChurchId,
+      page,
+      limit: PAGINATION_REGISTRATION_LIMIT,
+      filterByFirstName: searchFilters.filterByFirstName,
+      filterByLastName: searchFilters.filterByLastName,
+      filterByNationalId: searchFilters.numericId,
+      filterByHasNationalId: hasNationalIdFilter,
+    },
+    { skip: !activeChurchId },
+  );
+
+  useEffect(() => {
+    if (!directoryData?.data) return;
+    const incoming = directoryData.data;
+    if (page === 1) {
+      setUsers(incoming);
+    } else {
+      setUsers((prev) => {
+        const existingIds = new Set(prev.map((u) => u.id));
+        const uniqueNew = incoming.filter((u) => !existingIds.has(u.id));
+        return [...prev, ...uniqueNew];
+      });
+    }
+  }, [directoryData, page]);
+
+  const loading = isLoading || (isFetching && page === 1 && users.length === 0);
+  const totalPages = directoryData?.totalPages || 1;
+  const currentPage = directoryData?.currentPage || page;
 
   /**
-   * Clears search input and immediately fetches full user list.
+   * Clears search input and immediately resets to first page.
    */
   const handleClearSearch = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    prevSearchTextRef.current = '';
     setSearchText('');
-    dispatch(GetUsers({ findText: '', hasNationalId: hasNationalIdFilter }));
+    setDebouncedSearchText('');
+    setPage(1);
   };
 
   /**
@@ -289,24 +333,23 @@ const UserManagementView: React.FC = () => {
    */
   const handleRefreshUsers = async () => {
     try {
-      await dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter })).unwrap();
+      setPage(1);
+      await refetch();
     } catch {
       // ignore
     }
   };
 
-  const hasMore = currentPage < totalPages;
+  const hasMore = currentPage < totalPages && !isFetching;
 
   /**
    * Loads the next page of users for infinite scroll.
    */
   const handleLoadMore = useCallback(async () => {
-    try {
-      await dispatch(GetMoreUsers({ findText: searchText, hasNationalId: hasNationalIdFilter })).unwrap();
-    } catch (e) {
-      console.error(e);
+    if (!isFetching && currentPage < totalPages) {
+      setPage((prev) => prev + 1);
     }
-  }, [dispatch, searchText, hasNationalIdFilter]);
+  }, [isFetching, currentPage, totalPages]);
 
   const { sentinelRef, loadingMore, triggerLoadMore } = useInfiniteScroll({
     onLoadMore: handleLoadMore,
