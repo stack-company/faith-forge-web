@@ -67,7 +67,7 @@ export interface GetChurchMeetingsArgs {
 }
 
 export interface GetChurchMembersDirectoryArgs {
-  churchId?: string;
+  churchId: string;
   page?: number;
   limit?: number;
   filterByFirstName?: string;
@@ -292,18 +292,15 @@ export const churchApi = baseApi.injectEndpoints({
 
     getChurchMembersDirectory: builder.query<
       GetChurchMembersDirectoryResponse,
-      GetChurchMembersDirectoryArgs | void
+      GetChurchMembersDirectoryArgs
     >({
-      query: (args) => {
-        const { churchId, ...params } = args || {};
-        return {
-          microservice: MicroserviceEnum.Church,
-          url: '/church/members',
-          method: HttpRequestMethod.GET,
-          params,
-          headers: churchId ? { 'x-church-id': churchId } : undefined,
-        };
-      },
+      query: ({ churchId, ...params }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: '/church/members',
+        method: HttpRequestMethod.GET,
+        params,
+        headers: { 'x-church-id': churchId },
+      }),
       providesTags: (result) =>
         result?.data
           ? [
@@ -318,28 +315,28 @@ export const churchApi = baseApi.injectEndpoints({
 
     createChurchMember: builder.mutation<
       IUser,
-      { data: ICreateUser; churchId?: string }
+      { data: ICreateUser; churchId: string }
     >({
       query: ({ data, churchId }) => ({
         microservice: MicroserviceEnum.Church,
         url: '/church/members',
         method: HttpRequestMethod.POST,
         data,
-        headers: churchId ? { 'x-church-id': churchId } : undefined,
+        headers: { 'x-church-id': churchId },
       }),
       invalidatesTags: [{ type: 'ChurchMember', id: 'LIST' }],
     }),
 
     updateChurchMember: builder.mutation<
       IUser,
-      { id: string; data: IUpdateUser; churchId?: string }
+      { id: string; data: IUpdateUser; churchId: string }
     >({
       query: ({ id, data, churchId }) => ({
         microservice: MicroserviceEnum.Church,
         url: `/church/members/${id}`,
         method: HttpRequestMethod.PUT,
         data,
-        headers: churchId ? { 'x-church-id': churchId } : undefined,
+        headers: { 'x-church-id': churchId },
       }),
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'ChurchMember', id },

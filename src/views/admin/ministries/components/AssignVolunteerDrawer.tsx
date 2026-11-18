@@ -409,6 +409,10 @@ export const AssignVolunteerDrawer: React.FC<AssignVolunteerDrawerProps> = ({
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const activeChurchId = getActiveTenantChurchId();
+        if (!activeChurchId) {
+          setSearchResults([]);
+          return;
+        }
         const { filterByFirstName, filterByLastName, numericId } =
           parseEntitySearchParams(searchText.trim());
         const res = await fetchChurchMembers({

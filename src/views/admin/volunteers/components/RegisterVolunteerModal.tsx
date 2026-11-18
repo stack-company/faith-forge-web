@@ -71,6 +71,10 @@ export const RegisterVolunteerModal: React.FC<RegisterVolunteerModalProps> = ({
     setSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
+        if (!activeChurchId) {
+          setSearchResults([]);
+          return;
+        }
         const { filterByFirstName, filterByLastName, numericId } =
           parseEntitySearchParams(searchText.trim());
         const res = await fetchChurchMembers({

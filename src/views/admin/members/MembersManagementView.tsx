@@ -291,7 +291,7 @@ const UserManagementView: React.FC = () => {
     refetch: refetchDirectory,
   } = useGetChurchMembersDirectoryQuery(
     {
-      churchId: activeChurchId,
+      churchId: activeChurchId ?? '',
       page,
       limit: PAGINATION_REGISTRATION_LIMIT,
       filterByFirstName: searchFilters.filterByFirstName,
