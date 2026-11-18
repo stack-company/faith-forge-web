@@ -88,7 +88,7 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     expect(screen.queryByText('admin:layout.sidebar.system_operations')).not.toBeInTheDocument();
   });
 
-  it('HP-02: SUPER_ADMIN sees system operations in AdminSidebar and can access AdminSystemOperationsView', () => {
+  it('HP-02: SUPER_ADMIN does NOT see system operations in AdminSidebar (moved to SuperAdminLayout)', () => {
     const superAdminCtx = buildCapabilityContext(true, true);
     mockUsePermissions.mockReturnValue({
       ...superAdminCtx,
@@ -96,25 +96,20 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     });
 
     render(
-      <MemoryRouter initialEntries={[APP_ROUTES.admin.systemOperations]}>
+      <MemoryRouter initialEntries={[APP_ROUTES.admin.root]}>
         <AdminSidebar
           onOpenTerminology={vi.fn()}
           onOpenClearCache={vi.fn()}
           onOpenChangelog={vi.fn()}
         />
-        <Routes>
-          <Route path={APP_ROUTES.admin.systemOperations} element={<AdminSystemOperationsView />} />
-          <Route path={APP_ROUTES.admin.root} element={<div data-testid="admin-home">Admin Home</div>} />
-        </Routes>
       </MemoryRouter>
     );
 
     expect(screen.getByText('admin:layout.role_super_admin')).toBeInTheDocument();
-    expect(screen.getByText('admin:layout.sidebar.system_operations')).toBeInTheDocument();
-    expect(screen.getByTestId('code-migrations-section')).toBeInTheDocument();
+    expect(screen.queryByText('admin:layout.sidebar.system_operations')).not.toBeInTheDocument();
   });
 
-  it('CB-01: CHURCH_ADMIN navigating directly to system operations route is redirected immediately to /admin', () => {
+  it('CB-01: User without admin:manage-system-operations navigating to /system is redirected to /', () => {
     const churchAdminCtx = buildCapabilityContext(true, false);
     mockUsePermissions.mockReturnValue({
       ...churchAdminCtx,
@@ -122,15 +117,34 @@ describe('SC-33: Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isol
     });
 
     render(
-      <MemoryRouter initialEntries={[APP_ROUTES.admin.systemOperations]}>
+      <MemoryRouter initialEntries={[APP_ROUTES.superAdmin.systemOperations]}>
         <Routes>
-          <Route path={APP_ROUTES.admin.systemOperations} element={<AdminSystemOperationsView />} />
-          <Route path={APP_ROUTES.admin.root} element={<div data-testid="admin-home">Admin Home</div>} />
+          <Route path={APP_ROUTES.superAdmin.systemOperations} element={<AdminSystemOperationsView />} />
+          <Route path={APP_ROUTES.superAdmin.root} element={<div data-testid="super-admin-home">Super Admin Home</div>} />
         </Routes>
       </MemoryRouter>
     );
 
-    expect(screen.getByTestId('admin-home')).toBeInTheDocument();
+    expect(screen.getByTestId('super-admin-home')).toBeInTheDocument();
     expect(screen.queryByTestId('code-migrations-section')).not.toBeInTheDocument();
+  });
+
+  it('HP-01: SUPER_ADMIN accessing /system renders AdminSystemOperationsView', () => {
+    const superAdminCtx = buildCapabilityContext(true, true);
+    mockUsePermissions.mockReturnValue({
+      ...superAdminCtx,
+      can: (cap: AppCapability) => hasCapability(cap, superAdminCtx),
+    });
+
+    render(
+      <MemoryRouter initialEntries={[APP_ROUTES.superAdmin.systemOperations]}>
+        <Routes>
+          <Route path={APP_ROUTES.superAdmin.systemOperations} element={<AdminSystemOperationsView />} />
+          <Route path={APP_ROUTES.superAdmin.root} element={<div data-testid="super-admin-home">Super Admin Home</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('code-migrations-section')).toBeInTheDocument();
   });
 });
