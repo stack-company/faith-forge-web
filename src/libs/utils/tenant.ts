@@ -1,6 +1,7 @@
 import { IChurch, IChurchBranding } from '@/libs/models/Church';
 
 export const TENANT_BRANDING_CACHE_KEY = 'ff_tenant_branding_cache';
+export const DEV_TENANT_OVERRIDE_KEY = 'lumbrela_dev_tenant_override';
 
 export interface TenantHostContext {
   hostname: string;
@@ -11,7 +12,34 @@ export interface TenantHostContext {
 const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api']);
 
 /**
+ * Checks whether a hostname corresponds to a local development, IP, or Vercel preview environment.
+ *
+ * @param {string} hostname - Lowercase hostname from `window.location.hostname`.
+ * @returns {boolean} True when running in a local or preview host environment.
+ */
+const isLocalTenantHost = (hostname: string): boolean =>
+  hostname === 'localhost' ||
+  hostname === '127.0.0.1' ||
+  /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) ||
+  hostname.endsWith('.vercel.app') ||
+  hostname.endsWith('.localhost');
+
+/**
+ * Extracts the root domain from a production hostname (stripping `admin.` or a tenant subdomain).
+ *
+ * @param {string} hostname - Lowercase hostname from `window.location.hostname`.
+ * @returns {string} Root domain string (e.g. `lumbrela.app`).
+ */
+const getRootDomain = (hostname: string): string => {
+  if (hostname.startsWith('admin.')) return hostname.slice('admin.'.length);
+  const parts = hostname.split('.');
+  if (parts.length >= 3) return parts.slice(1).join('.');
+  return hostname;
+};
+
+/**
  * Resolves the active host context from window.location (and optional ?tenant= query parameter for local dev).
+ * Persists `?tenant=` in sessionStorage on local/preview hosts so internal navigation preserves the tenant context.
  *
  * @returns {TenantHostContext} Parsed host context indicating whether it is the Superadmin console or a church tenant.
  */
@@ -27,8 +55,26 @@ export const resolveTenantHostContext = (): TenantHostContext => {
   const rawHostname = window.location.hostname.toLowerCase();
   const searchParams = new URLSearchParams(window.location.search);
   const queryTenant = searchParams.get('tenant')?.trim().toLowerCase() || null;
+  const isLocal = isLocalTenantHost(rawHostname);
 
-  if (queryTenant === 'admin' || rawHostname.startsWith('admin.')) {
+  if (isLocal && queryTenant && (queryTenant === 'admin' || !RESERVED_SUBDOMAINS.has(queryTenant))) {
+    try {
+      sessionStorage.setItem(DEV_TENANT_OVERRIDE_KEY, queryTenant);
+    } catch {
+      // Ignore sessionStorage access errors
+    }
+  }
+
+  let effectiveQueryTenant = queryTenant;
+  if (!effectiveQueryTenant && isLocal) {
+    try {
+      effectiveQueryTenant = sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)?.trim().toLowerCase() || null;
+    } catch {
+      effectiveQueryTenant = null;
+    }
+  }
+
+  if (effectiveQueryTenant === 'admin' || rawHostname.startsWith('admin.')) {
     return {
       hostname: rawHostname,
       isSuperAdminHost: true,
@@ -36,21 +82,15 @@ export const resolveTenantHostContext = (): TenantHostContext => {
     };
   }
 
-  if (queryTenant && !RESERVED_SUBDOMAINS.has(queryTenant)) {
+  if (effectiveQueryTenant && !RESERVED_SUBDOMAINS.has(effectiveQueryTenant)) {
     return {
       hostname: rawHostname,
       isSuperAdminHost: false,
-      tenantSlug: queryTenant,
+      tenantSlug: effectiveQueryTenant,
     };
   }
 
-  const isLocalOrIp =
-    rawHostname === 'localhost' ||
-    rawHostname === '127.0.0.1' ||
-    /^\d{1,3}(\.\d{1,3}){3}$/.test(rawHostname) ||
-    rawHostname.endsWith('.vercel.app');
-
-  if (isLocalOrIp) {
+  if (isLocal) {
     const localParts = rawHostname.split('.');
     if (localParts.length >= 2 && localParts[localParts.length - 1] === 'localhost') {
       const candidate = localParts[0];
@@ -93,6 +133,48 @@ export const resolveTenantHostContext = (): TenantHostContext => {
     isSuperAdminHost: false,
     tenantSlug: null,
   };
+};
+
+/**
+ * Builds the admin panel URL for a church tenant, using `/admin?tenant=<slug>` in local/preview
+ * environments and `https://<slug>.<rootDomain>/admin` in production.
+ *
+ * @param {Pick<IChurch, 'slug'>} church - Target church tenant.
+ * @returns {string} Admin panel URL for the given church, or '#' if no slug is available.
+ */
+export const buildTenantAdminUrl = (church: Pick<IChurch, 'slug'>): string => {
+  const slug = church.slug?.trim().toLowerCase();
+  if (!slug || typeof window === 'undefined') return '#';
+
+  const { protocol, hostname } = window.location;
+  const normalizedHost = hostname.toLowerCase();
+
+  if (isLocalTenantHost(normalizedHost)) {
+    return `/admin?tenant=${encodeURIComponent(slug)}`;
+  }
+
+  const rootDomain = getRootDomain(normalizedHost);
+  return `${protocol}//${slug}.${rootDomain}/admin`;
+};
+
+/**
+ * Builds the Superadmin console URL, using `/?tenant=admin` in local/preview
+ * environments and `https://admin.<rootDomain>` in production.
+ *
+ * @returns {string} Superadmin console URL.
+ */
+export const buildSuperAdminConsoleUrl = (): string => {
+  if (typeof window === 'undefined') return '#';
+
+  const { protocol, hostname } = window.location;
+  const normalizedHost = hostname.toLowerCase();
+
+  if (isLocalTenantHost(normalizedHost)) {
+    return '/?tenant=admin';
+  }
+
+  const rootDomain = getRootDomain(normalizedHost);
+  return `${protocol}//admin.${rootDomain}`;
 };
 
 /**
@@ -163,20 +245,23 @@ export const applyChurchBrandingToDom = (church?: IChurch | null): void => {
  * @returns {string | undefined} Active church UUID if available.
  */
 export const getActiveTenantChurchId = (): string | undefined => {
-  if (resolveTenantHostContext().isSuperAdminHost) return undefined;
+  const hostContext = resolveTenantHostContext();
+  if (hostContext.isSuperAdminHost) return undefined;
 
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(TENANT_BRANDING_CACHE_KEY);
       if (cached) {
-        const parsed = JSON.parse(cached) as { churchId?: string };
-        if (parsed?.churchId) return parsed.churchId;
+        const parsed = JSON.parse(cached) as { churchId?: string; slug?: string };
+        const matchesTenantSlug =
+          !hostContext.tenantSlug || !parsed?.slug || parsed.slug === hostContext.tenantSlug;
+        if (parsed?.churchId && matchesTenantSlug) return parsed.churchId;
       }
     } catch {
       // Ignore parse errors
     }
   }
-  return import.meta.env.VITE_CHURCH_ID || undefined;
+  return hostContext.tenantSlug ? undefined : import.meta.env.VITE_CHURCH_ID || undefined;
 };
 
 /**
