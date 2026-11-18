@@ -842,7 +842,17 @@
     "role_super_admin": "Super Admin",
     "role_church_admin": "Administrador",
     "role_staff": "Staff",
+    "no_active_church": {
+      "title": "Selecciona una iglesia para administrar",
+      "description": "No hay una iglesia activa seleccionada en este contexto. Elige una iglesia del selector o regresa a la Consola Plataforma.",
+      "select_label": "Iglesia activa",
+      "select_placeholder": "Seleccionar iglesia...",
+      "back_to_platform": "Ir a Consola Plataforma"
+    },
     "sidebar": {
+      "active_church_label": "Iglesia activa",
+      "select_church_placeholder": "Seleccionar iglesia...",
+      "back_to_platform": "Volver a Consola Plataforma",
       "section_dashboard": "PANEL DE CONTROL",
       "section_facilities": "SEDES E INSTALACIONES",
       "section_ministries": "MINISTERIOS Y SERVIDORES",

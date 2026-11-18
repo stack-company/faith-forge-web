@@ -17,7 +17,7 @@ const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api']);
  * @param {string} hostname - Lowercase hostname from `window.location.hostname`.
  * @returns {boolean} True when running in a local or preview host environment.
  */
-const isLocalTenantHost = (hostname: string): boolean =>
+export const isLocalTenantHost = (hostname: string): boolean =>
   hostname === 'localhost' ||
   hostname === '127.0.0.1' ||
   /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) ||

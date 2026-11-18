@@ -313,11 +313,11 @@ function App() {
   const effectiveChurchId = resolvedTenantChurch?.id || getActiveTenantChurchId();
 
   useEffect(() => {
-    if (!token || hostContext.isSuperAdminHost) return;
+    if (!token || hostContext.isSuperAdminHost || !effectiveChurchId) return;
     dispatch(GetChurchCampuses());
     dispatch(GetMinistries());
     dispatch(FetchMyVolunteerPermissions());
-  }, [dispatch, token, hostContext.isSuperAdminHost]);
+  }, [dispatch, token, hostContext.isSuperAdminHost, effectiveChurchId]);
 
   useEffect(() => {
     if (!token || hostContext.isSuperAdminHost || !effectiveChurchId) return;
