@@ -20,7 +20,8 @@ import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
 import { setActiveExperience } from '@/libs/state/redux/slices/user/auth.slice';
 import { UserLogout } from '@/libs/state/redux/thunks/user/auth.thunk';
 import { APP_ROUTES } from '@/config/routes';
-import { UserExperienceEnum, UserRole } from '@/libs/utils/auth';
+import { usePermissions } from '@/libs/hooks/usePermissions';
+import { UserExperienceEnum } from '@/libs/utils/auth';
 import { capitalizeWords, formatPersonShortName } from '@/libs/utils/text';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageLoader from './PageLoader';
@@ -109,11 +110,14 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
     setIsScrolledPastSearch(scrollTop > 90);
   };
 
-  const isSuperAdmin = (user?.roles || []).includes(UserRole.SUPER_ADMIN);
-  const isAdmin = (user?.roles || []).includes(UserRole.ADMIN);
-  const isStaff = (user?.roles || []).includes(UserRole.STAFF);
+  const { can, isStaff } = usePermissions();
+  const canManagePlatform = can('platform:manage-churches');
+  const canManageChurch = can('church:manage-settings');
   const hasAdminAccess =
-    isSuperAdmin || isAdmin || isStaff || (experiences || []).includes(UserExperienceEnum.ADMIN);
+    canManagePlatform ||
+    canManageChurch ||
+    isStaff ||
+    (experiences || []).includes(UserExperienceEnum.ADMIN);
 
   // Security guard: If user lacks admin permissions, block access and redirect away
   if (!hasAdminAccess) {
@@ -123,9 +127,9 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
     return <Navigate to="/" replace />;
   }
 
-  const adminThemeClass = isSuperAdmin
+  const adminThemeClass = canManagePlatform
     ? 'theme-SUPER_ADMIN'
-    : isAdmin
+    : canManageChurch
     ? 'theme-ADMIN'
     : isStaff
     ? 'theme-STAFF'
@@ -229,7 +233,7 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
               type="button"
               onClick={() => setMobileDrawerOpen(true)}
               className="lg:hidden w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-              aria-label="Abrir menú"
+              aria-label={t('admin:layout.open_menu')}
             >
               <Menu size={20} />
             </button>
@@ -237,21 +241,21 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
             {/* Desktop Page Context */}
             <div className="hidden lg:flex items-center gap-2 text-sm text-slate-500 min-w-0">
               <span className="font-semibold text-slate-900 truncate">
-                {activeChurch?.name || 'Iglesia Cristiana Familiar Rios de Vida'}
+                {activeChurch?.name || t('admin:layout.default_church_name')}
               </span>
               <ChevronRight size={14} className="text-slate-400 shrink-0" />
               <span className="bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 truncate">
-                {isSuperAdmin
-                  ? 'Panel de Plataforma'
-                  : isAdmin
-                  ? 'Panel de Administración'
-                  : 'Gestión Administrativa'}
+                {canManagePlatform
+                  ? t('admin:layout.panel_platform')
+                  : canManageChurch
+                  ? t('admin:layout.panel_admin')
+                  : t('admin:layout.panel_staff')}
               </span>
             </div>
 
             {/* Mobile Title */}
             <div className="lg:hidden font-bold text-sm text-slate-900 truncate">
-              {activeChurch?.name || 'Administración'}
+              {activeChurch?.name || t('admin:layout.mobile_title_fallback')}
             </div>
           </div>
 
@@ -294,7 +298,11 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
                     {shortName}
                   </span>
                   <span className="text-[10px] text-slate-400 font-medium truncate leading-tight">
-                    {isSuperAdmin ? 'Super Admin' : isAdmin ? 'Administrador' : 'Staff'}
+                    {canManagePlatform
+                      ? t('admin:layout.role_super_admin')
+                      : canManageChurch
+                      ? t('admin:layout.role_church_admin')
+                      : t('admin:layout.role_staff')}
                   </span>
                 </div>
                 <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
@@ -336,7 +344,7 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
                       className="flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer outline-none hover:bg-slate-50 text-slate-700 transition-colors text-sm font-medium"
                     >
                       <LayoutGrid size={16} className="text-slate-400" />
-                      <span>Cambiar de espacio</span>
+                      <span>{t('admin:layout.switch_space')}</span>
                     </DropdownMenu.Item>
                   )}
 

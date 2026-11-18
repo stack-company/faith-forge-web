@@ -130,7 +130,7 @@ export const hasCapability = (cap: AppCapability, ctx: CapabilityContext): boole
 
     case 'admin:manage-system-operations':
     case 'admin:run-code-migrations':
-      return ctx.isSuperAdmin || ctx.isAdmin;
+      return ctx.isSuperAdmin;
 
     default:
       return false;

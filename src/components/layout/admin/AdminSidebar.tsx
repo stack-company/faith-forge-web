@@ -23,8 +23,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { APP_ROUTES } from '@/config/routes';
 import { useChurchTerm } from '@/libs/hooks/useTerm';
+import { usePermissions } from '@/libs/hooks/usePermissions';
+import { Can } from '@/components/auth/Can';
 import { useAppSelector } from '@/libs/state/redux/hooks';
-import { UserRole } from '@/libs/utils/auth';
 import { APP_VERSION } from '@/constants/version';
 
 interface NavItem {
@@ -70,8 +71,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const { t } = useTranslation(['admin', 'common']);
   const location = useLocation();
   const navigate = useNavigate();
+  const { can } = usePermissions();
 
-  const user = useAppSelector((state) => state.authSlice.user);
   const experiences = useAppSelector((state) => state.authSlice.experiences) || [];
   const activeChurch = useAppSelector((state) => state.churchCampusSlice.church);
   const campuses = useAppSelector((state) => state.churchCampusSlice.data);
@@ -79,21 +80,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const campusesTerm = useChurchTerm('campuses');
   const meetingsTerm = useChurchTerm('meetings');
-  const volunteersTerm = useChurchTerm('volunteers');
 
-  const isSuperAdmin = (user?.roles || []).includes(UserRole.SUPER_ADMIN);
-  const isAdmin = (user?.roles || []).includes(UserRole.ADMIN);
+  const canManagePlatform = can('platform:manage-churches');
+  const canManageChurch = can('church:manage-settings');
   const hasMultipleSpaces = experiences.length > 1;
 
-  const roleLabel = isSuperAdmin
-    ? 'Super Admin'
-    : isAdmin
-    ? 'Administrador'
-    : 'Staff';
+  const roleLabel = canManagePlatform
+    ? t('admin:layout.role_super_admin')
+    : canManageChurch
+    ? t('admin:layout.role_church_admin')
+    : t('admin:layout.role_staff');
 
   const sections: NavSection[] = [
     {
-      title: 'PANEL DE CONTROL',
+      title: t('admin:layout.sidebar.section_dashboard'),
       items: [
         {
           id: 'dashboard',
@@ -105,7 +105,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       ],
     },
     {
-      title: 'SEDES E INSTALACIONES',
+      title: t('admin:layout.sidebar.section_facilities'),
       items: [
         {
           id: 'campuses',
@@ -130,36 +130,36 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       ],
     },
     {
-      title: 'MINISTERIOS Y SERVIDORES',
+      title: t('admin:layout.sidebar.section_ministries'),
       items: [
         {
           id: 'ministries',
-          label: 'Gestión de Ministerios',
+          label: t('admin:layout.sidebar.ministries_management'),
           to: APP_ROUTES.admin.ministries,
           icon: Layers,
         },
         {
           id: 'volunteer-applications',
-          label: 'Solicitudes',
+          label: t('admin:layout.sidebar.volunteer_applications'),
           to: APP_ROUTES.admin.volunteerApplications,
           icon: UserCheck,
-          badge: pendingApplicationsCount > 0 ? `${pendingApplicationsCount} pend.` : undefined,
+          badge: pendingApplicationsCount > 0 ? t('admin:layout.sidebar.pending_badge', { count: pendingApplicationsCount }) : undefined,
           badgeColor: 'bg-amber-100 text-amber-800',
         },
       ],
     },
     {
-      title: 'GESTIÓN DE USUARIOS',
+      title: t('admin:layout.sidebar.section_users'),
       items: [
         {
           id: 'users',
-          label: 'Directorio de Usuarios',
+          label: t('admin:layout.sidebar.users_directory'),
           to: APP_ROUTES.admin.users,
           icon: Users,
         },
         {
           id: 'create-user',
-          label: 'Crear Nuevo Usuario',
+          label: t('admin:layout.sidebar.create_user'),
           to: APP_ROUTES.admin.createUser,
           icon: UserPlus,
         },
@@ -195,7 +195,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           {(!collapsed || isMobileDrawer) && (
             <div className="min-w-0 flex flex-col">
               <span className="font-extrabold text-sm text-slate-900 truncate leading-tight tracking-tight">
-                {activeChurch?.name || 'Iglesia Rios de Vida'}
+                {activeChurch?.name || t('admin:layout.default_church_name')}
               </span>
               <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full w-fit mt-0.5">
                 {roleLabel}
@@ -222,7 +222,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 'w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors',
                 collapsed && 'mx-auto'
               )}
-              title={collapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral'}
+              title={collapsed ? t('admin:layout.sidebar.expand_sidebar') : t('admin:layout.sidebar.collapse_sidebar')}
             >
               {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
@@ -293,39 +293,41 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <div className="space-y-1">
           {(!collapsed || isMobileDrawer) && (
             <h2 className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              SISTEMA
+              {t('admin:layout.sidebar.section_system')}
             </h2>
           )}
           <div className="space-y-0.5">
-            <NavLink
-              to={APP_ROUTES.admin.systemOperations}
-              onClick={handleNavClick}
-              title={collapsed && !isMobileDrawer ? 'Operaciones del Sistema' : undefined}
-              className={clsx(
-                'group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-                location.pathname.startsWith(APP_ROUTES.admin.systemOperations)
-                  ? 'bg-indigo-50/70 text-indigo-700 font-bold shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
-                collapsed && !isMobileDrawer && 'justify-center px-0'
-              )}
-            >
-              <div
+            <Can capability="admin:manage-system-operations">
+              <NavLink
+                to={APP_ROUTES.admin.systemOperations}
+                onClick={handleNavClick}
+                title={collapsed && !isMobileDrawer ? t('admin:layout.sidebar.system_operations') : undefined}
                 className={clsx(
-                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                  'group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                   location.pathname.startsWith(APP_ROUTES.admin.systemOperations)
-                    ? 'text-indigo-600'
-                    : 'text-slate-400 group-hover:text-slate-700'
+                    ? 'bg-indigo-50/70 text-indigo-700 font-bold shadow-2xs'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
+                  collapsed && !isMobileDrawer && 'justify-center px-0'
                 )}
               >
-                <SlidersHorizontal size={18} />
-              </div>
-              {(!collapsed || isMobileDrawer) && (
-                <span className="truncate flex-1">Operaciones del Sistema</span>
-              )}
-              {(!collapsed || isMobileDrawer) && location.pathname.startsWith(APP_ROUTES.admin.systemOperations) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 ml-auto" />
-              )}
-            </NavLink>
+                <div
+                  className={clsx(
+                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                    location.pathname.startsWith(APP_ROUTES.admin.systemOperations)
+                      ? 'text-indigo-600'
+                      : 'text-slate-400 group-hover:text-slate-700'
+                  )}
+                >
+                  <SlidersHorizontal size={18} />
+                </div>
+                {(!collapsed || isMobileDrawer) && (
+                  <span className="truncate flex-1">{t('admin:layout.sidebar.system_operations')}</span>
+                )}
+                {(!collapsed || isMobileDrawer) && location.pathname.startsWith(APP_ROUTES.admin.systemOperations) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 ml-auto" />
+                )}
+              </NavLink>
+            </Can>
 
             <button
               type="button"
@@ -333,7 +335,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 handleNavClick();
                 onOpenTerminology();
               }}
-              title={collapsed && !isMobileDrawer ? 'Vocabulario & Reglas' : undefined}
+              title={collapsed && !isMobileDrawer ? t('admin:layout.sidebar.terminology') : undefined}
               className={clsx(
                 'w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 transition-colors cursor-pointer',
                 collapsed && !isMobileDrawer && 'justify-center px-0'
@@ -343,7 +345,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 <Sparkles size={18} />
               </div>
               {(!collapsed || isMobileDrawer) && (
-                <span className="truncate flex-1 text-left">Vocabulario & Reglas</span>
+                <span className="truncate flex-1 text-left">{t('admin:layout.sidebar.terminology')}</span>
               )}
             </button>
           </div>
@@ -356,7 +358,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <button
             type="button"
             onClick={() => navigate(APP_ROUTES.hub)}
-            title={collapsed && !isMobileDrawer ? 'Cambiar a Espacio Móvil' : undefined}
+            title={collapsed && !isMobileDrawer ? t('admin:layout.switch_space_mobile') : undefined}
             className={clsx(
               'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200/80 shadow-2xs hover:bg-slate-50 transition-all cursor-pointer',
               collapsed && !isMobileDrawer && 'justify-center px-0'
@@ -365,7 +367,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             <div className="flex items-center gap-2.5 min-w-0">
               <LayoutGrid size={16} className="text-slate-500 shrink-0" />
               {(!collapsed || isMobileDrawer) && (
-                <span className="truncate">Cambiar de espacio</span>
+                <span className="truncate">{t('admin:layout.switch_space')}</span>
               )}
             </div>
             {(!collapsed || isMobileDrawer) && <ExternalLink size={13} className="text-slate-400 shrink-0" />}
@@ -378,13 +380,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             onClick={onOpenChangelog}
             className="w-full text-center text-[11px] text-slate-400 hover:text-slate-600 transition-colors py-1 cursor-pointer"
           >
-            v{APP_VERSION} · <span className="underline decoration-dotted">Ver novedades</span>
+            v{APP_VERSION} · <span className="underline decoration-dotted">{t('admin:layout.sidebar.changelog_link')}</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={onOpenChangelog}
-            title={`v${APP_VERSION} - Novedades`}
+            title={t('admin:layout.sidebar.changelog_tooltip', { version: APP_VERSION })}
             className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors py-1 cursor-pointer"
           >
             v{APP_VERSION}

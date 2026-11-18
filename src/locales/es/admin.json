@@ -827,5 +827,36 @@
       "clean_btn": "Limpiar",
       "clean_all_btn": "Limpiar Todo el Sistema"
     }
+  },
+  "layout": {
+    "default_church_name": "Iglesia",
+    "mobile_title_fallback": "Administración",
+    "open_menu": "Abrir menú",
+    "switch_space": "Cambiar de espacio",
+    "switch_space_mobile": "Cambiar a Espacio Móvil",
+    "panel_platform": "Panel de Plataforma",
+    "panel_admin": "Panel de Administración",
+    "panel_staff": "Gestión Administrativa",
+    "role_super_admin": "Super Admin",
+    "role_church_admin": "Administrador",
+    "role_staff": "Staff",
+    "sidebar": {
+      "section_dashboard": "PANEL DE CONTROL",
+      "section_facilities": "SEDES E INSTALACIONES",
+      "section_ministries": "MINISTERIOS Y SERVIDORES",
+      "section_users": "GESTIÓN DE USUARIOS",
+      "section_system": "SISTEMA",
+      "ministries_management": "Gestión de Ministerios",
+      "volunteer_applications": "Solicitudes",
+      "pending_badge": "{{count}} pend.",
+      "users_directory": "Directorio de Usuarios",
+      "create_user": "Crear Nuevo Usuario",
+      "system_operations": "Operaciones del Sistema",
+      "terminology": "Vocabulario & Reglas",
+      "expand_sidebar": "Expandir barra lateral",
+      "collapse_sidebar": "Colapsar barra lateral",
+      "changelog_link": "Ver novedades",
+      "changelog_tooltip": "v{{version}} - Novedades"
+    }
   }
 }

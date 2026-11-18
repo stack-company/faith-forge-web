@@ -22,6 +22,7 @@ import clsx from 'clsx';
 import { ClearCacheModal } from '@/components/modal/ClearCacheModal';
 import { TerminologyModal } from '@/components/modal/TerminologyModal';
 import { useChurchTerm } from '@/libs/hooks/useTerm';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import { useAppSelector } from '@/libs/state/redux/hooks';
 
 interface AdminActionItem {
@@ -54,6 +55,8 @@ interface AdminCategory {
 export const AdminDashboardView: React.FC = () => {
   const { t } = useTranslation(['admin', 'common']);
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const canManageSystemOperations = can('admin:manage-system-operations');
   const [clearCacheOpen, setClearCacheOpen] = useState(false);
   const [terminologyOpen, setTerminologyOpen] = useState(false);
 
@@ -164,15 +167,19 @@ export const AdminDashboardView: React.FC = () => {
       iconBg: 'bg-slate-100',
       iconColor: 'text-slate-600',
       items: [
-        {
-          id: 'system-operations',
-          title: t('admin:dashboard.system_operations_title'),
-          description: t('admin:dashboard.system_operations_desc'),
-          icon: SlidersHorizontal,
-          route: APP_ROUTES.admin.systemOperations,
-          iconBg: 'bg-indigo-50 border border-indigo-100/60',
-          iconColor: 'text-indigo-600',
-        },
+        ...(canManageSystemOperations
+          ? [
+              {
+                id: 'system-operations',
+                title: t('admin:dashboard.system_operations_title'),
+                description: t('admin:dashboard.system_operations_desc'),
+                icon: SlidersHorizontal,
+                route: APP_ROUTES.admin.systemOperations,
+                iconBg: 'bg-indigo-50 border border-indigo-100/60',
+                iconColor: 'text-indigo-600',
+              },
+            ]
+          : []),
         {
           id: 'terminology-settings',
           title: t('admin:dashboard.terminology_title'),
@@ -184,7 +191,7 @@ export const AdminDashboardView: React.FC = () => {
         },
       ],
     },
-  ], [t, volunteersTerm, campusesTerm, campusTerm, meetingsTerm]);
+  ], [t, volunteersTerm, campusesTerm, campusTerm, meetingsTerm, canManageSystemOperations]);
 
   /**
    * Handles click events for individual action cards.
