@@ -1,15 +1,20 @@
 import React from 'react';
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminSystemOperationsView } from '@/views/admin/system/AdminSystemOperationsView';
 import { APP_ROUTES } from '@/config/routes';
 import { AppCapability, CapabilityContext, hasCapability } from '@/libs/utils/auth/capabilities';
+import { EntityState, IChurch } from '@/libs/models';
+import { DEV_TENANT_OVERRIDE_KEY, TENANT_BRANDING_CACHE_KEY } from '@/libs/utils/tenant';
 
 const mockUseAppSelector = vi.fn();
+const mockDispatch = vi.fn();
 const mockUsePermissions = vi.fn();
+const mockUseGetChurchesQuery = vi.fn();
+const mockResetApiState = vi.fn(() => ({ type: 'api/resetApiState' }));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -19,6 +24,19 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@/libs/state/redux/hooks', () => ({
   useAppSelector: (selector: (state: unknown) => unknown) => mockUseAppSelector(selector),
+  useAppDispatch: () => mockDispatch,
+}));
+
+vi.mock('@/libs/state/redux/api/churchApi', () => ({
+  useGetChurchesQuery: (...args: unknown[]) => mockUseGetChurchesQuery(...args),
+}));
+
+vi.mock('@/libs/state/redux/api/baseApi', () => ({
+  baseApi: {
+    util: {
+      resetApiState: () => mockResetApiState(),
+    },
+  },
 }));
 
 vi.mock('@/libs/hooks/usePermissions', () => ({
@@ -46,12 +64,26 @@ const buildCapabilityContext = (
     isSuperAdmin,
   }) as CapabilityContext;
 
+const churchA = {
+  id: 'church-1',
+  name: 'Iglesia A',
+  slug: 'iglesia-a',
+  state: EntityState.ACTIVE,
+} as IChurch;
+
+const churchB = {
+  id: 'church-2',
+  name: 'Iglesia B',
+  slug: 'iglesia-b',
+  state: EntityState.ACTIVE,
+} as IChurch;
+
 const defaultState = {
   authSlice: {
     experiences: ['ADMIN'],
   },
   churchCampusSlice: {
-    church: { id: 'church-1', name: 'Iglesia Central' },
+    church: churchA,
     data: [{ id: 'campus-1', name: 'Sede Norte' }],
   },
   volunteerApplicationSlice: {
@@ -62,7 +94,25 @@ const defaultState = {
 describe('Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isolation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
+    localStorage.clear();
     mockUseAppSelector.mockImplementation((selector) => selector(defaultState));
+    mockUseGetChurchesQuery.mockReturnValue({
+      data: { data: [churchA, churchB], total: 2 },
+      isLoading: false,
+    });
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        href: 'http://localhost:3000/admin?tenant=iglesia-a',
+        protocol: 'http:',
+        hostname: 'localhost',
+        port: '3000',
+        pathname: '/admin',
+        search: '?tenant=iglesia-a',
+        assign: vi.fn(),
+      },
+    });
   });
 
   it('CHURCH_ADMIN sees active church name and church sections, but NOT system operations in AdminSidebar', () => {
@@ -82,10 +132,16 @@ describe('Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isolation',
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Iglesia Central')).toBeInTheDocument();
+    expect(screen.getByText('Iglesia A')).toBeInTheDocument();
     expect(screen.getByText('admin:layout.role_church_admin')).toBeInTheDocument();
     expect(screen.getByText('admin:layout.sidebar.users_directory')).toBeInTheDocument();
     expect(screen.queryByText('admin:layout.sidebar.system_operations')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('admin:layout.sidebar.active_church_label')).not.toBeInTheDocument();
+    expect(screen.queryByText('admin:layout.sidebar.back_to_platform')).not.toBeInTheDocument();
+    expect(mockUseGetChurchesQuery).toHaveBeenCalledWith(
+      { page: 1, limit: 100, order: 'ASC' },
+      { skip: true },
+    );
   });
 
   it('SUPER_ADMIN does NOT see system operations in AdminSidebar (moved to SuperAdminLayout)', () => {
@@ -146,5 +202,60 @@ describe('Platform (SUPER_ADMIN) vs Church (CHURCH_ADMIN) capability isolation',
     );
 
     expect(screen.getByTestId('code-migrations-section')).toBeInTheDocument();
+  });
+
+  it('SUPER_ADMIN switches active church from switcher and resets RTK Query API state', () => {
+    const superAdminCtx = buildCapabilityContext(true, true);
+    mockUsePermissions.mockReturnValue({
+      ...superAdminCtx,
+      can: (cap: AppCapability) => hasCapability(cap, superAdminCtx),
+    });
+
+    render(
+      <MemoryRouter initialEntries={[APP_ROUTES.admin.root]}>
+        <AdminSidebar
+          onOpenTerminology={vi.fn()}
+          onOpenClearCache={vi.fn()}
+          onOpenChangelog={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    const switcher = screen.getByLabelText('admin:layout.sidebar.active_church_label') as HTMLSelectElement;
+    expect(switcher.value).toBe('church-1');
+
+    fireEvent.change(switcher, { target: { value: 'church-2' } });
+
+    expect(sessionStorage.getItem(DEV_TENANT_OVERRIDE_KEY)).toBe('iglesia-b');
+    const brandingCache = JSON.parse(localStorage.getItem(TENANT_BRANDING_CACHE_KEY) || '{}');
+    expect(brandingCache.churchId).toBe('church-2');
+    expect(brandingCache.slug).toBe('iglesia-b');
+    expect(mockResetApiState).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'api/resetApiState' });
+  });
+
+  it('SUPER_ADMIN clicks back to platform console button and navigates to SuperAdmin console URL', () => {
+    const superAdminCtx = buildCapabilityContext(true, true);
+    mockUsePermissions.mockReturnValue({
+      ...superAdminCtx,
+      can: (cap: AppCapability) => hasCapability(cap, superAdminCtx),
+    });
+
+    render(
+      <MemoryRouter initialEntries={[APP_ROUTES.admin.root]}>
+        <AdminSidebar
+          onOpenTerminology={vi.fn()}
+          onOpenClearCache={vi.fn()}
+          onOpenChangelog={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    const backButton = screen.getByRole('button', {
+      name: 'admin:layout.sidebar.back_to_platform',
+    });
+    fireEvent.click(backButton);
+
+    expect(window.location.assign).toHaveBeenCalledWith('/?tenant=admin');
   });
 });

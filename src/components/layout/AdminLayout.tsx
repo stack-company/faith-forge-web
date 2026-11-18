@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageLoader from './PageLoader';
 import { AdminSidebar } from './admin/AdminSidebar';
 import { AdminNotificationsPopover } from './admin/AdminNotificationsPopover';
+import { NoActiveChurchState } from './admin/NoActiveChurchState';
 
 const UserProfileModal = lazy(() => import('@/components/modal/UserProfileModal'));
 const ChangelogModal = lazy(() => import('@/components/modal/ChangelogModal'));
@@ -367,9 +368,13 @@ const AdminLayoutContent: React.FC<AdminLayoutProps> = ({ children }) => {
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto flex flex-col bg-slate-50/70"
         >
-          <Suspense fallback={<PageLoader />}>
-            {children || <Outlet />}
-          </Suspense>
+          {canManagePlatform && !activeChurch?.id ? (
+            <NoActiveChurchState />
+          ) : (
+            <Suspense fallback={<PageLoader />}>
+              {children || <Outlet />}
+            </Suspense>
+          )}
         </main>
       </div>
 

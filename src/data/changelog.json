@@ -7,7 +7,9 @@
     "title": "Mejoras en el panel administrativo",
     "changes": [
       "Organización de accesos y secciones del panel según el rol en la iglesia activa.",
-      "Mejoras en la búsqueda, edición y asignación de miembros dentro de la iglesia activa."
+      "Mejoras en la búsqueda, edición y asignación de miembros dentro de la iglesia activa.",
+      "Selector rápido para cambiar entre iglesias activas y regresar al panel general de plataforma.",
+      "Logo personalizado visible en el menú lateral y mejoras en la navegación entre espacios."
     ]
   },
   {
