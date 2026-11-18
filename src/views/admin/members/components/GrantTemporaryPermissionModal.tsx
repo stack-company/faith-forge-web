@@ -17,7 +17,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useModalBackClose } from '@/libs/hooks/useModalBackClose';
 import { formatPersonFullName } from '@/libs/utils/text';
-import { requireActiveChurchId } from '@/libs/utils/tenant';
+import { getActiveChurchId } from '@/libs/utils/tenant';
 import clsx from 'clsx';
 
 interface GrantTemporaryPermissionModalProps {
@@ -53,7 +53,7 @@ export const GrantTemporaryPermissionModal: React.FC<GrantTemporaryPermissionMod
   useModalBackClose(open, onClose);
   const dispatch = useAppDispatch();
   const storeChurchId = useAppSelector((state) => state.churchCampusSlice.church?.id);
-  const churchId = requireActiveChurchId(storeChurchId);
+  const churchId = getActiveChurchId(storeChurchId);
 
   const [selectedMinistry, setSelectedMinistry] = useState<string>('ALL');
   const [selectedRole, setSelectedRole] = useState<string>('');

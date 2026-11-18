@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { requireActiveChurchId } from '@/libs/utils/tenant';
+import { getActiveChurchId } from '@/libs/utils/tenant';
 import AppModal from '@/components/ui/AppModal';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -93,7 +93,7 @@ export const MinistryModal: React.FC<MinistryModalProps> = ({
         await dispatch(
           CreateMinistry({
             churchCampusId: activeCampusId,
-            churchId: requireActiveChurchId(),
+            churchId: getActiveChurchId(),
             name: name.trim(),
             description: description.trim() || undefined,
             type,

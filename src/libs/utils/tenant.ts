@@ -185,7 +185,7 @@ export const getActiveTenantChurchId = (): string | undefined => {
  * @param {string | null | undefined} churchIdFromStore - Optional church ID already loaded in Redux state.
  * @returns {string} Guaranteed active church UUID.
  */
-export const requireActiveChurchId = (churchIdFromStore?: string | null): string => {
+export const getActiveChurchId = (churchIdFromStore?: string | null): string => {
   const churchId = churchIdFromStore || getActiveTenantChurchId();
   if (!churchId) {
     throw new Error('Active church context is required for this operation.');
