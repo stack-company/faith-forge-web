@@ -1,7 +1,7 @@
 import { IChurch, IChurchBranding } from '@/libs/models/Church';
 
 export const TENANT_BRANDING_CACHE_KEY = 'ff_tenant_branding_cache';
-export const DEV_TENANT_OVERRIDE_KEY = 'ff_dev_tenant_override';
+export const DEV_TENANT_OVERRIDE_KEY = 'lumbrela_dev_tenant_override';
 
 export interface TenantHostContext {
   hostname: string;
