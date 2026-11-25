@@ -22,7 +22,9 @@ import clsx from 'clsx';
 import { ClearCacheModal } from '@/components/modal/ClearCacheModal';
 import { TerminologyModal } from '@/components/modal/TerminologyModal';
 import { useChurchTerm } from '@/libs/hooks/useTerm';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import { useAppSelector } from '@/libs/state/redux/hooks';
+import { NoActiveChurchState } from '@/components/layout/admin/NoActiveChurchState';
 
 interface AdminActionItem {
   id: string;
@@ -57,8 +59,10 @@ export const AdminDashboardView: React.FC = () => {
   const [clearCacheOpen, setClearCacheOpen] = useState(false);
   const [terminologyOpen, setTerminologyOpen] = useState(false);
 
+  const { can } = usePermissions();
   const activeChurch = useAppSelector((state) => state.churchCampusSlice.church);
   const campuses = useAppSelector((state) => state.churchCampusSlice.data);
+  const canManagePlatform = can('platform:manage-churches');
 
   const volunteersTerm = useChurchTerm('volunteers');
   const campusesTerm = useChurchTerm('campuses');
@@ -165,15 +169,6 @@ export const AdminDashboardView: React.FC = () => {
       iconColor: 'text-slate-600',
       items: [
         {
-          id: 'system-operations',
-          title: t('admin:dashboard.system_operations_title'),
-          description: t('admin:dashboard.system_operations_desc'),
-          icon: SlidersHorizontal,
-          route: APP_ROUTES.admin.systemOperations,
-          iconBg: 'bg-indigo-50 border border-indigo-100/60',
-          iconColor: 'text-indigo-600',
-        },
-        {
           id: 'terminology-settings',
           title: t('admin:dashboard.terminology_title'),
           description: t('admin:dashboard.terminology_desc', { meetings: meetingsTerm.toLowerCase(), campuses: campusesTerm.toLowerCase() }),
@@ -200,6 +195,8 @@ export const AdminDashboardView: React.FC = () => {
       navigate(item.route);
     }
   };
+
+  if (canManagePlatform && !activeChurch?.id) return <NoActiveChurchState />;
 
   return (
     <div className="min-h-full flex-1 w-full bg-slate-50/60 pb-16">

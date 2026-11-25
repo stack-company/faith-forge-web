@@ -6,6 +6,7 @@ import { KidCheckInSkeleton } from '@/components/ui/DetailSkeleton';
 import PageHeader from '@/components/ui/PageHeader';
 import PhoneDisplay from '@/components/ui/PhoneDisplay';
 import { APP_ROUTES } from '@/config/routes';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import {
   getVolunteerRoleLabel,
   useChurchTerm,
@@ -39,7 +40,9 @@ import {
 } from '@/libs/state/redux/thunks/user/user.thunk';
 import { ALL_SYSTEM_ROLES_METADATA, UserRole } from '@/libs/utils/auth';
 import { formatDateOnly, toDateOnlyInputValue } from '@/libs/utils/date';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { capitalizeWords, formatPersonFullName } from '@/libs/utils/text';
+import ChangeVolunteerRoleModal from '@/views/admin/ministries/components/ChangeVolunteerRoleModal';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -67,7 +70,6 @@ import { useTranslation } from 'react-i18next';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import ChangeVolunteerRoleModal from '@/views/admin/ministries/components/ChangeVolunteerRoleModal';
 import { AssignUserMinistryModal } from './components/AssignUserMinistryModal';
 import { GrantTemporaryPermissionModal } from './components/GrantTemporaryPermissionModal';
 
@@ -87,6 +89,8 @@ const UserDetailView: React.FC = () => {
   const dispatch = useAppDispatch();
   const kidsModuleName = useKidsTerm('module_alias');
   const volunteerTerm = useChurchTerm('volunteer');
+  const { can } = usePermissions();
+  const canAssignGlobalRoles = can('users:assign-global-roles');
 
   const {
     current: currentUserInSlice,
@@ -116,11 +120,10 @@ const UserDetailView: React.FC = () => {
     useAppSelector((state) => state.ministrySlice);
 
   useEffect(() => {
-    if (!campuses || campuses.length === 0) {
-      dispatch(GetChurchCampuses());
-    }
+    if (!campuses || campuses.length === 0) dispatch(GetChurchCampuses());
     if (!ministries || ministries.length === 0) {
-      dispatch(GetMinistries({ churchId: import.meta.env.VITE_CHURCH_ID }));
+      const activeChurchId = getActiveTenantChurchId();
+      if (activeChurchId) dispatch(GetMinistries({ churchId: activeChurchId }));
     }
   }, [dispatch, campuses?.length, ministries?.length]);
 
@@ -203,9 +206,8 @@ const UserDetailView: React.FC = () => {
         sag.ministryArea?.ministryId === changeRoleMinistryId ||
         changeRoleAreas.some((a) => a.id === sag.ministryAreaId);
       if (!matchMin) return false;
-      if (changeRoleCampusId && sag.churchCampusId !== changeRoleCampusId) {
+      if (changeRoleCampusId && sag.churchCampusId !== changeRoleCampusId)
         return false;
-      }
       return true;
     });
   }, [
@@ -217,9 +219,8 @@ const UserDetailView: React.FC = () => {
 
   // Derive user from current slice selection or from loaded list in memory
   const user = useMemo(() => {
-    if (currentUserInSlice && currentUserInSlice.id === id) {
+    if (currentUserInSlice && currentUserInSlice.id === id)
       return currentUserInSlice;
-    }
     if (id && usersList && usersList.length > 0) {
       const found = usersList.find((u) => u.id === id);
       if (found) return found;
@@ -229,9 +230,7 @@ const UserDetailView: React.FC = () => {
 
   // Only fallback to GetUser if user is not already available in Redux (e.g. direct URL refresh)
   useEffect(() => {
-    if (id && (!user || user.id !== id)) {
-      dispatch(GetUser({ id }));
-    }
+    if (id && (!user || user.id !== id)) dispatch(GetUser({ id }));
   }, [id, user, dispatch]);
 
   // Fetch volunteer profile and permission grants when user ID is available
@@ -287,18 +286,13 @@ const UserDetailView: React.FC = () => {
 
     try {
       await dispatch(
-        UnassignUserRole({
-          userId: user.id,
-          userRole: roleToDelete,
-        }),
+        UnassignUserRole({ userId: user.id, userRole: roleToDelete }),
       ).unwrap();
 
       toast.success(`¡Rol "${roleName}" eliminado con éxito!`);
       setShowDeleteRoleModal(false);
       setRoleToDelete(null);
-      if (id) {
-        dispatch(GetUser({ id }));
-      }
+      if (id) dispatch(GetUser({ id }));
     } catch (err: any) {
       toast.error(
         err?.message || err?.error || 'Error al eliminar el rol del usuario',
@@ -779,16 +773,24 @@ const UserDetailView: React.FC = () => {
                       </h3>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="default"
-                      onClick={() => setShowAssignRoleModal(true)}
-                      className="py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 shadow-2xs border border-gray-200"
-                    >
-                      <ShieldPlus size={14} className="text-emerald-600" />{' '}
-                      Asignar Rol
-                    </Button>
+                    {canAssignGlobalRoles && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => setShowAssignRoleModal(true)}
+                        className="py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 shadow-2xs border border-gray-200"
+                      >
+                        <ShieldPlus size={14} className="text-emerald-600" />{' '}
+                        Asignar Rol
+                      </Button>
+                    )}
                   </div>
+
+                  {!canAssignGlobalRoles && (
+                    <div className="mb-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 font-medium">
+                      {t('users.church_staff_delegation_note')}
+                    </div>
+                  )}
 
                   {assignedRoles.length === 0 ? (
                     <div className="p-6 bg-slate-50 rounded-2xl text-center flex flex-col items-center">
@@ -796,20 +798,31 @@ const UserDetailView: React.FC = () => {
                         Este usuario no tiene ningún rol de sistema asignado
                         actualmente.
                       </p>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        onClick={() => setShowAssignRoleModal(true)}
-                        className="py-2 px-4 text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <ShieldPlus size={15} /> Asignar Primer Rol
-                      </Button>
+                      {canAssignGlobalRoles && (
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() => setShowAssignRoleModal(true)}
+                          className="py-2 px-4 text-xs font-bold flex items-center gap-1.5"
+                        >
+                          <ShieldPlus size={15} /> Asignar Primer Rol
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2.5">
                       {assignedRoles.map((role) => {
                         const isBaseUserRole =
                           role === UserRole.USER || (role as string) === 'USER';
+                        const isGlobalPlatformRole = [
+                          UserRole.ADMIN,
+                          UserRole.STAFF,
+                          UserRole.SUPER_ADMIN,
+                        ].includes(role as UserRole);
+                        const canDeleteThisRole =
+                          canAssignGlobalRoles &&
+                          !isBaseUserRole &&
+                          isGlobalPlatformRole;
                         const meta = ALL_SYSTEM_ROLES_METADATA[role];
                         return (
                           <div
@@ -853,8 +866,8 @@ const UserDetailView: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Individual Delete Role Button (Desbloqueado solo para roles no básicos) */}
-                            {!isBaseUserRole ? (
+                            {/* Individual Delete Role Button (Desbloqueado solo para roles editables) */}
+                            {canDeleteThisRole ? (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -869,9 +882,17 @@ const UserDetailView: React.FC = () => {
                             ) : (
                               <span
                                 className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200/80 shrink-0 select-none"
-                                title="El rol básico no puede eliminarse"
+                                title={
+                                  isBaseUserRole
+                                    ? 'El rol básico no puede eliminarse'
+                                    : undefined
+                                }
                               >
-                                Por defecto
+                                {isBaseUserRole
+                                  ? 'Por defecto'
+                                  : role.startsWith('KID_')
+                                    ? 'Derivado'
+                                    : 'Solo SuperAdmin'}
                               </span>
                             )}
                           </div>
@@ -1368,7 +1389,10 @@ const UserDetailView: React.FC = () => {
                                     <span>
                                       • Otorgado por:{' '}
                                       <span className="font-medium">
-                                        {formatPersonFullName(grant.grantedByUser.firstName, grant.grantedByUser.lastName)}
+                                        {formatPersonFullName(
+                                          grant.grantedByUser.firstName,
+                                          grant.grantedByUser.lastName,
+                                        )}
                                       </span>
                                     </span>
                                   )}
@@ -1406,9 +1430,7 @@ const UserDetailView: React.FC = () => {
         user={user}
         existingVolunteer={activeUserVolunteer}
         onSuccess={() => {
-          if (user?.id) {
-            dispatch(GetVolunteerByUserId({ userId: user.id }));
-          }
+          if (user?.id) dispatch(GetVolunteerByUserId({ userId: user.id }));
         }}
       />
 
@@ -1424,9 +1446,7 @@ const UserDetailView: React.FC = () => {
         campuses={campuses}
         serviceAreaGroups={changeRoleTeams}
         onSuccess={() => {
-          if (user?.id) {
-            dispatch(GetVolunteerByUserId({ userId: user.id }));
-          }
+          if (user?.id) dispatch(GetVolunteerByUserId({ userId: user.id }));
         }}
       />
 
@@ -1436,9 +1456,7 @@ const UserDetailView: React.FC = () => {
         onClose={() => setShowGrantPermissionModal(false)}
         user={user}
         onSuccess={() => {
-          if (user?.id) {
-            dispatch(GetUserPermissionGrants({ userId: user.id }));
-          }
+          if (user?.id) dispatch(GetUserPermissionGrants({ userId: user.id }));
         }}
       />
 
@@ -1467,16 +1485,16 @@ const UserDetailView: React.FC = () => {
       />
 
       {/* Role Assignment Modal */}
-      <AssignUserRoleModal
-        open={showAssignRoleModal}
-        onClose={() => setShowAssignRoleModal(false)}
-        user={user}
-        onSuccess={() => {
-          if (id) {
-            dispatch(GetUser({ id }));
-          }
-        }}
-      />
+      {canAssignGlobalRoles && (
+        <AssignUserRoleModal
+          open={showAssignRoleModal}
+          onClose={() => setShowAssignRoleModal(false)}
+          user={user}
+          onSuccess={() => {
+            if (id) dispatch(GetUser({ id }));
+          }}
+        />
+      )}
 
       {/* User Account / Credentials Modal */}
       <UserAccountModal
@@ -1484,9 +1502,7 @@ const UserDetailView: React.FC = () => {
         onClose={() => setShowAccountModal(false)}
         user={user}
         onSuccess={() => {
-          if (id) {
-            dispatch(GetUser({ id }));
-          }
+          if (id) dispatch(GetUser({ id }));
         }}
       />
 

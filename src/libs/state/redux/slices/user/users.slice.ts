@@ -1,5 +1,5 @@
-import { IUser, IUsers } from '@/libs/models';
 import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
+import { IUser, IUsers } from '@/libs/models';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import {
   AssignUserRole,
@@ -22,6 +22,28 @@ const initialState: IUsers = {
   needsRefresh: false,
 };
 
+/**
+ * Applies a partial user update to both `state.current` and `state.data`.
+ *
+ * @param {IUsers} state - Current users Redux slice state.
+ * @param {string | undefined} updatedId - Target user ID.
+ * @param {Partial<IUser>} patch - Partial user fields to merge.
+ * @returns {void}
+ */
+const applyUserPatch = (
+  state: IUsers,
+  updatedId: string | undefined,
+  patch: Partial<IUser>,
+): void => {
+  if (state.current && (!updatedId || state.current.id === updatedId))
+    state.current = { ...state.current, ...patch };
+  if (updatedId && state.data) {
+    const index = state.data.findIndex((u) => u.id === updatedId);
+    if (index !== -1) state.data[index] = { ...state.data[index], ...patch };
+  }
+  state.needsRefresh = true;
+};
+
 const userSlice = createSlice({
   name: 'user',
   initialState: initialState,
@@ -34,6 +56,12 @@ const userSlice = createSlice({
     },
     updateCurrentUser: (state, action: PayloadAction<IUser | undefined>) => {
       state.current = action.payload;
+    },
+    patchUserInStore: (
+      state,
+      action: PayloadAction<{ id: string; data: Partial<IUser> }>,
+    ) => {
+      applyUserPatch(state, action.payload.id, action.payload.data);
     },
     markUsersNeedsRefresh: (state) => {
       state.needsRefresh = true;
@@ -145,53 +173,44 @@ const userSlice = createSlice({
     });
     builder.addCase(UpdateUser.fulfilled, (state, action) => {
       const updatedId = (action.meta as any)?.arg?.id || state.current?.id;
-      if (state.current && (!updatedId || state.current.id === updatedId)) {
-        state.current = {
-          ...state.current,
-          ...action.payload,
-        };
-      }
-      if (updatedId && state.data) {
-        const index = state.data.findIndex((u) => u.id === updatedId);
-        if (index !== -1) {
-          state.data[index] = {
-            ...state.data[index],
-            ...action.payload,
-          };
-        }
-      }
-      state.needsRefresh = true;
+      applyUserPatch(state, updatedId, action.payload);
     });
     builder.addCase(AssignUserRole.fulfilled, (state, action) => {
       state.needsRefresh = true;
       const { userId, userRole } = (action.meta.arg as any) || {};
-      if (state.current && userRole && (state.current.id === userId || !userId)) {
+      if (
+        state.current &&
+        userRole &&
+        (state.current.id === userId || !userId)
+      ) {
         const currentRoles = state.current.roles || [];
-        if (!currentRoles.includes(userRole)) {
+        if (!currentRoles.includes(userRole))
           state.current.roles = [...currentRoles, userRole];
-        }
       }
       if (userId && state.data) {
         const item = state.data.find((u) => u.id === userId);
         if (item && userRole) {
           const currentRoles = item.roles || [];
-          if (!currentRoles.includes(userRole)) {
+          if (!currentRoles.includes(userRole))
             item.roles = [...currentRoles, userRole];
-          }
         }
       }
     });
     builder.addCase(UnassignUserRole.fulfilled, (state, action) => {
       state.needsRefresh = true;
       const { userId, userRole } = (action.meta.arg as any) || {};
-      if (state.current && userRole && state.current.roles && (state.current.id === userId || !userId)) {
+      if (
+        state.current &&
+        userRole &&
+        state.current.roles &&
+        (state.current.id === userId || !userId)
+      ) {
         state.current.roles = state.current.roles.filter((r) => r !== userRole);
       }
       if (userId && state.data) {
         const item = state.data.find((u) => u.id === userId);
-        if (item && userRole && item.roles) {
+        if (item && userRole && item.roles)
           item.roles = item.roles.filter((r) => r !== userRole);
-        }
       }
     });
   },
@@ -201,6 +220,7 @@ export const {
   loadingUserEnable,
   loadingUserDisable,
   updateCurrentUser,
+  patchUserInStore,
   markUsersNeedsRefresh,
   resetUsersNeedsRefresh,
 } = userSlice.actions;

@@ -452,12 +452,6 @@ export const MINISTRY_ROLE_GROUPS: MinistryRoleGroup[] = [
       ChurchRole.KID_SECURITY_COORDINATOR,
     ],
   },
-  {
-    id: 'ADMINISTRATION',
-    label: 'Administración General',
-    description: 'Gestión global de la congregación, sedes y personal',
-    roles: [UserRole.ADMIN, UserRole.STAFF],
-  },
 ];
 
 export const ALL_ASSIGNABLE_ROLES: AppRole[] = MINISTRY_ROLE_GROUPS.flatMap((g) => g.roles);

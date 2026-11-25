@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   Loader2,
   UserPlus,
@@ -25,11 +26,17 @@ import PageHeader from '@/components/ui/PageHeader';
 import { CellListSkeleton } from '@/components/ui/DetailSkeleton';
 import EndOfListFunnyBadge from '@/components/ui/EndOfListFunnyBadge';
 import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
-import { GetUsers, GetMoreUsers } from '@/libs/state/redux/thunks/user/user.thunk';
 import { updateCurrentUser } from '@/libs/state/redux/slices/user/users.slice';
-import { useGetChurchCampusesQuery } from '@/libs/state/redux/api/churchApi';
+import {
+  useGetChurchCampusesQuery,
+  useGetChurchMembersDirectoryQuery,
+} from '@/libs/state/redux/api/churchApi';
+import { useGetGlobalUsersQuery } from '@/libs/state/redux/api/userApi';
+import { usePermissions } from '@/libs/hooks/usePermissions';
 import { APP_ROUTES } from '@/config/routes';
-import { capitalizeWords } from '@/libs/utils/text';
+import { PAGINATION_REGISTRATION_LIMIT } from '@/libs/common-types/constants';
+import { capitalizeWords, parseEntitySearchParams } from '@/libs/utils/text';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { formatPhoneDisplay } from '@/libs/utils/phone';
 import { IUser, UserState } from '@/libs/models';
 import { UserRole, ALL_SYSTEM_ROLES_METADATA, AppRole } from '@/libs/utils/auth';
@@ -229,39 +236,34 @@ const UserManagementView: React.FC = () => {
     };
   }, [setSearchAvailable, registerSearchFocusHandler]);
 
-  const { data: users, loading, currentPage, totalPages, needsRefresh } = useAppSelector(
-    (state) => state.userSlice
-  );
+  const activeChurchId =
+    useAppSelector((state) => state.churchCampusSlice.church?.id) ||
+    getActiveTenantChurchId();
+  const { can } = usePermissions();
+  const canManagePlatform = can('platform:manage-churches');
+  const canManageMembers = can('church:manage-settings');
+
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
+  const [page, setPage] = useState(1);
+  const [users, setUsers] = useState<IUser[]>([]);
 
   const hasNationalIdFilter = quickFilter === 'without_document' ? false : true;
-  const prevSearchTextRef = useRef<string | null>(null);
-  const prevHasNationalIdRef = useRef<boolean>(hasNationalIdFilter);
 
-  // Search logic with debounce and automatic refresh on mutations
+  // Debounce search text
   useEffect(() => {
-    const isFirstMount = prevSearchTextRef.current === null;
-    const isSearchChanged = !isFirstMount && searchText !== prevSearchTextRef.current;
-    const isDocFilterChanged = !isFirstMount && hasNationalIdFilter !== prevHasNationalIdRef.current;
-    prevSearchTextRef.current = searchText;
-    prevHasNationalIdRef.current = hasNationalIdFilter;
-
-    if (isFirstMount && users.length > 0 && !needsRefresh) return;
-    if (!isFirstMount && !isSearchChanged && !isDocFilterChanged && !needsRefresh && users.length > 0) return;
-
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
 
-    const delay = isSearchChanged && searchText.trim().length > 0 ? 400 : 0;
-
-    if (delay === 0) {
-      dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter }));
-    } else {
-      timeoutRef.current = setTimeout(() => {
-        dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter }));
-      }, delay);
+    if (searchText.trim().length === 0) {
+      setDebouncedSearchText('');
+      return;
     }
+
+    timeoutRef.current = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 400);
 
     return () => {
       if (timeoutRef.current) {
@@ -269,19 +271,90 @@ const UserManagementView: React.FC = () => {
         timeoutRef.current = null;
       }
     };
-  }, [searchText, hasNationalIdFilter, dispatch, needsRefresh, users.length]);
+  }, [searchText]);
+
+  // Reset pagination & cached rows when active church or filters change
+  useEffect(() => {
+    setPage(1);
+    setUsers([]);
+    setSelectedUserIds(new Set());
+  }, [activeChurchId, debouncedSearchText, hasNationalIdFilter]);
+
+  const searchFilters = useMemo(
+    () => parseEntitySearchParams(debouncedSearchText),
+    [debouncedSearchText],
+  );
+
+  const {
+    data: directoryData,
+    isLoading: isDirectoryLoading,
+    isFetching: isDirectoryFetching,
+    refetch: refetchDirectory,
+  } = useGetChurchMembersDirectoryQuery(
+    activeChurchId
+      ? {
+          churchId: activeChurchId,
+          page,
+          limit: PAGINATION_REGISTRATION_LIMIT,
+          filterByFirstName: searchFilters.filterByFirstName,
+          filterByLastName: searchFilters.filterByLastName,
+          filterByNationalId: searchFilters.numericId,
+          filterByHasNationalId: hasNationalIdFilter,
+        }
+      : skipToken,
+  );
+
+  const {
+    data: globalUsersData,
+    isLoading: isGlobalLoading,
+    isFetching: isGlobalFetching,
+    refetch: refetchGlobalUsers,
+  } = useGetGlobalUsersQuery(
+    {
+      page,
+      limit: PAGINATION_REGISTRATION_LIMIT,
+      filterByFirstName: searchFilters.filterByFirstName,
+      filterByLastName: searchFilters.filterByLastName,
+      filterByNationalId: searchFilters.numericId,
+      filterByHasNationalId: hasNationalIdFilter,
+    },
+    { skip: Boolean(activeChurchId) || !canManagePlatform },
+  );
+
+  const activeDirectoryData = activeChurchId ? directoryData : globalUsersData;
+  const isLoading = activeChurchId ? isDirectoryLoading : isGlobalLoading;
+  const isFetching = activeChurchId ? isDirectoryFetching : isGlobalFetching;
+  const refetch = activeChurchId ? refetchDirectory : refetchGlobalUsers;
+
+  useEffect(() => {
+    if (!activeDirectoryData?.data) return;
+    const incoming = activeDirectoryData.data;
+    if (page === 1) {
+      setUsers(incoming);
+    } else {
+      setUsers((prev) => {
+        const existingIds = new Set(prev.map((u) => u.id));
+        const uniqueNew = incoming.filter((u) => !existingIds.has(u.id));
+        return [...prev, ...uniqueNew];
+      });
+    }
+  }, [activeDirectoryData, page]);
+
+  const loading = isLoading || (isFetching && page === 1 && users.length === 0);
+  const totalPages = activeDirectoryData?.totalPages || 1;
+  const currentPage = activeDirectoryData?.currentPage || page;
 
   /**
-   * Clears search input and immediately fetches full user list.
+   * Clears search input and immediately resets to first page.
    */
   const handleClearSearch = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    prevSearchTextRef.current = '';
     setSearchText('');
-    dispatch(GetUsers({ findText: '', hasNationalId: hasNationalIdFilter }));
+    setDebouncedSearchText('');
+    setPage(1);
   };
 
   /**
@@ -289,24 +362,23 @@ const UserManagementView: React.FC = () => {
    */
   const handleRefreshUsers = async () => {
     try {
-      await dispatch(GetUsers({ findText: searchText, hasNationalId: hasNationalIdFilter })).unwrap();
+      setPage(1);
+      await refetch();
     } catch {
       // ignore
     }
   };
 
-  const hasMore = currentPage < totalPages;
+  const hasMore = currentPage < totalPages && !isFetching;
 
   /**
    * Loads the next page of users for infinite scroll.
    */
   const handleLoadMore = useCallback(async () => {
-    try {
-      await dispatch(GetMoreUsers({ findText: searchText, hasNationalId: hasNationalIdFilter })).unwrap();
-    } catch (e) {
-      console.error(e);
+    if (!isFetching && currentPage < totalPages) {
+      setPage((prev) => prev + 1);
     }
-  }, [dispatch, searchText, hasNationalIdFilter]);
+  }, [isFetching, currentPage, totalPages]);
 
   const { sentinelRef, loadingMore, triggerLoadMore } = useInfiniteScroll({
     onLoadMore: handleLoadMore,
@@ -412,7 +484,7 @@ const UserManagementView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const rightHeaderAction = (
+  const rightHeaderAction = canManageMembers ? (
     <button
       type="button"
       onClick={() => navigate(APP_ROUTES.admin.createUser)}
@@ -421,7 +493,7 @@ const UserManagementView: React.FC = () => {
       <UserPlus size={15} />
       <span>{t('directory.new_user')}</span>
     </button>
-  );
+  ) : undefined;
 
   return (
     <div className="min-h-full bg-slate-50 pb-20 flex flex-col flex-1">
@@ -465,15 +537,17 @@ const UserManagementView: React.FC = () => {
               <span>{t('directory.export_csv')}</span>
             </button>
 
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate(APP_ROUTES.admin.createUser)}
-              className="inline-flex items-center gap-1.5 text-xs shadow-xs"
-            >
-              <UserPlus size={15} />
-              <span>{t('directory.new_user')}</span>
-            </Button>
+            {canManageMembers && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate(APP_ROUTES.admin.createUser)}
+                className="inline-flex items-center gap-1.5 text-xs shadow-xs"
+              >
+                <UserPlus size={15} />
+                <span>{t('directory.new_user')}</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -731,14 +805,16 @@ const UserManagementView: React.FC = () => {
                     ? t('directory.empty_desc_search')
                     : t('directory.empty_desc')}
                 </p>
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => navigate(APP_ROUTES.admin.createUser)}
-                  className="mt-4 py-2 px-4 text-xs font-bold flex items-center gap-1.5 shadow-xs"
-                >
-                  <UserPlus size={15} /> {t('directory.new_user')}
-                </Button>
+                {canManageMembers && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => navigate(APP_ROUTES.admin.createUser)}
+                    className="mt-4 py-2 px-4 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                  >
+                    <UserPlus size={15} /> {t('directory.new_user')}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -968,14 +1044,16 @@ const UserManagementView: React.FC = () => {
                               >
                                 <Eye size={16} />
                               </button>
-                              <button
-                                type="button"
-                                title={t('directory.edit_user')}
-                                onClick={() => navigate(APP_ROUTES.admin.updateUser(user.id))}
-                                className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Pencil size={15} />
-                              </button>
+                              {canManageMembers && (
+                                <button
+                                  type="button"
+                                  title={t('directory.edit_user')}
+                                  onClick={() => navigate(APP_ROUTES.admin.updateUser(user.id))}
+                                  className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

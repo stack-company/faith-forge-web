@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   SlidersHorizontal,
   Terminal,
   Database,
   Sparkles,
-  ShieldAlert,
 } from 'lucide-react';
 import clsx from 'clsx';
 import PageHeader from '@/components/ui/PageHeader';
-import Button from '@/components/ui/Button';
 import { APP_ROUTES } from '@/config/routes';
 import { usePermissions } from '@/libs/hooks/usePermissions';
 import CodeMigrationsSection from './components/CodeMigrationsSection';
@@ -19,9 +17,9 @@ import CacheManagementSection from './components/CacheManagementSection';
 type OperationsTab = 'migrations' | 'cache';
 
 /**
- * Main System Operations View at /admin/system.
+ * Main System Operations View at /system.
  * Unifies technical maintenance, segmented cache clearing, and on-demand code migrations
- * for Super Administrators and General Administrators.
+ * for platform Super Administrators.
  *
  * @returns {JSX.Element} Rendered admin system operations view.
  */
@@ -48,37 +46,14 @@ export const AdminSystemOperationsView: React.FC = () => {
     setSearchParams({ tab });
   };
 
-  if (!canManageOperations) {
-    return (
-      <div className="min-h-full flex-1 w-full bg-slate-50/60 pb-20 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-md text-center flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center mb-4">
-            <ShieldAlert size={28} />
-          </div>
-          <h2 className="text-lg font-bold text-slate-900 mb-2">
-            Acceso Restringido
-          </h2>
-          <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-            Se requieren permisos de Administrador General o Super Administrador para ejecutar operaciones técnicas de sistema.
-          </p>
-          <Button
-            variant="default"
-            size="md"
-            onClick={() => navigate(APP_ROUTES.admin.root)}
-          >
-            Volver al Panel Principal
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  if (!canManageOperations) return <Navigate to={APP_ROUTES.superAdmin.root} replace />;
 
   return (
     <div className="min-h-full flex-1 w-full bg-slate-50/60 pb-20">
       {/* Mobile Top Header */}
       <PageHeader
         title={t('admin:system_operations.header_title')}
-        onBack={() => navigate(APP_ROUTES.admin.root)}
+        onBack={() => navigate(APP_ROUTES.superAdmin.root)}
         className="lg:hidden"
       />
 

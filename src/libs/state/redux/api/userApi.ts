@@ -194,6 +194,49 @@ export const userApi = baseApi.injectEndpoints({
         data,
       }),
     }),
+
+    searchUserByNationalId: builder.query<
+      IUser | null,
+      { nationalId: string; nationalIdType?: string }
+    >({
+      query: ({ nationalId, nationalIdType }) => ({
+        microservice: MicroserviceEnum.User,
+        url: '/user/search-by-national-id',
+        method: HttpRequestMethod.GET,
+        params: {
+          nationalId,
+          ...(nationalIdType ? { nationalIdType } : {}),
+        },
+      }),
+      transformResponse: (response: IUser | '' | null | undefined) =>
+        response && typeof response === 'object' && response.id ? response : null,
+    }),
+
+    getGlobalUsers: builder.query<
+      { data: IUser[]; currentPage?: number; totalPages?: number; total?: number },
+      {
+        page?: number;
+        limit?: number;
+        filterByFirstName?: string;
+        filterByLastName?: string;
+        filterByNationalId?: string;
+        filterByHasNationalId?: boolean;
+      } | void
+    >({
+      query: (params) => ({
+        microservice: MicroserviceEnum.User,
+        url: '/users',
+        method: HttpRequestMethod.GET,
+        params: params || undefined,
+      }),
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ id }) => ({ type: 'User' as const, id })),
+              { type: 'User', id: 'LIST' },
+            ]
+          : [{ type: 'User', id: 'LIST' }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -219,4 +262,8 @@ export const {
   useVerifyActivationTokenQuery,
   useLazyVerifyActivationTokenQuery,
   useCompleteAccountSetupMutation,
+  useSearchUserByNationalIdQuery,
+  useLazySearchUserByNationalIdQuery,
+  useGetGlobalUsersQuery,
+  useLazyGetGlobalUsersQuery,
 } = userApi;

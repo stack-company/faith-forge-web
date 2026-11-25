@@ -68,12 +68,12 @@ const AttendanceTrackingView = lazy(
 const AdminDashboardView = lazy(
   () => import('@/views/admin/AdminDashboardView'),
 );
-const CreateUserView = lazy(() => import('@/views/admin/users/CreateUserView'));
+const CreateUserView = lazy(() => import('@/views/admin/members/CreateMemberView'));
 const UserManagementView = lazy(
-  () => import('@/views/admin/users/UserManagementView'),
+  () => import('@/views/admin/members/MembersManagementView'),
 );
-const UserDetailView = lazy(() => import('@/views/admin/users/UserDetailView'));
-const UpdateUserView = lazy(() => import('@/views/admin/users/UpdateUserView'));
+const UserDetailView = lazy(() => import('@/views/admin/members/MemberDetailView'));
+const UpdateUserView = lazy(() => import('@/views/admin/members/UpdateMemberView'));
 const ChurchMeetingsView = lazy(
   () => import('@/views/admin/meetings/ChurchMeetingsView'),
 );
@@ -308,15 +308,21 @@ function App() {
   }, [dispatch, hostContext.isSuperAdminHost, resolvedTenantChurch]);
 
   // Global bootstrap: Ensure church settings, campuses, and ministries (custom terminology)
-  // are loaded as soon as an authenticated session is active.
+  // are loaded as soon as an authenticated session is active, without duplicating calls
+  // when tenant resolution completes with the same churchId.
+  const effectiveChurchId = resolvedTenantChurch?.id || getActiveTenantChurchId();
+
   useEffect(() => {
-    if (!token || hostContext.isSuperAdminHost) return;
-    const churchId = resolvedTenantChurch?.id || getActiveTenantChurchId();
-    if (churchId) dispatch(GetChurchById(churchId));
+    if (!token || hostContext.isSuperAdminHost || !effectiveChurchId) return;
     dispatch(GetChurchCampuses());
     dispatch(GetMinistries());
     dispatch(FetchMyVolunteerPermissions());
-  }, [dispatch, token, hostContext.isSuperAdminHost, resolvedTenantChurch?.id]);
+  }, [dispatch, token, hostContext.isSuperAdminHost, effectiveChurchId]);
+
+  useEffect(() => {
+    if (!token || hostContext.isSuperAdminHost || !effectiveChurchId) return;
+    dispatch(GetChurchById(effectiveChurchId));
+  }, [dispatch, token, hostContext.isSuperAdminHost, effectiveChurchId]);
 
   // Request notification permissions on app startup
   useEffect(() => {
@@ -405,6 +411,10 @@ function App() {
                   <Route
                     path={APP_ROUTES.superAdmin.churches}
                     element={<ChurchesManagementView />}
+                  />
+                  <Route
+                    path={APP_ROUTES.superAdmin.systemOperations}
+                    element={<AdminSystemOperationsView />}
                   />
                   <Route
                     path="*"
@@ -551,8 +561,8 @@ function App() {
                   element={<VolunteerApplicationsView />}
                 />
                 <Route
-                  path={APP_ROUTES.admin.systemOperations}
-                  element={<AdminSystemOperationsView />}
+                  path="/admin/system"
+                  element={<Navigate to={APP_ROUTES.admin.root} replace />}
                 />
               </Route>
 

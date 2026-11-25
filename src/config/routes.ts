@@ -11,6 +11,7 @@ export const APP_ROUTES = {
   superAdmin: {
     root: '/',
     churches: '/churches',
+    systemOperations: '/system',
   },
 
   admin: {
@@ -40,7 +41,6 @@ export const APP_ROUTES = {
       `/admin/ministries/${id}/structure`,
     volunteers: '/admin/volunteers',
     volunteerApplications: '/admin/volunteers/applications',
-    systemOperations: '/admin/system',
   },
   kidChurch: {
     root: '/kid-church',

@@ -31,7 +31,10 @@ import {
   IChurchPrinter,
   IChurchReport,
   IChurchStaff,
+  ICreateUser,
   IMinistry,
+  IUpdateUser,
+  IUser,
   IMinistryAnalyticsResponse,
   IMinistryAttendanceMatrixResponse,
   IMinistryMeetingGroupAssignment,
@@ -61,6 +64,23 @@ import { baseApi } from './baseApi';
 
 export interface GetChurchMeetingsArgs {
   churchCampusId?: string;
+}
+
+export interface GetChurchMembersDirectoryArgs {
+  churchId: string;
+  page?: number;
+  limit?: number;
+  filterByFirstName?: string;
+  filterByLastName?: string;
+  filterByNationalId?: string;
+  filterByHasNationalId?: boolean;
+}
+
+export interface GetChurchMembersDirectoryResponse {
+  data: IUser[];
+  currentPage: number;
+  totalPages: number;
+  total?: number;
 }
 
 export interface GetChurchPrintersArgs {
@@ -268,6 +288,60 @@ export const churchApi = baseApi.injectEndpoints({
               { type: 'ChurchMember', id: 'LIST' },
             ]
           : [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    getChurchMembersDirectory: builder.query<
+      GetChurchMembersDirectoryResponse,
+      GetChurchMembersDirectoryArgs
+    >({
+      query: ({ churchId, ...params }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: '/church/members',
+        method: HttpRequestMethod.GET,
+        params,
+        headers: { 'x-church-id': churchId },
+      }),
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ id }) => ({
+                type: 'ChurchMember' as const,
+                id,
+              })),
+              { type: 'ChurchMember', id: 'LIST' },
+            ]
+          : [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    createChurchMember: builder.mutation<
+      IUser,
+      { data: ICreateUser; churchId: string }
+    >({
+      query: ({ data, churchId }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: '/church/members',
+        method: HttpRequestMethod.POST,
+        data,
+        headers: { 'x-church-id': churchId },
+      }),
+      invalidatesTags: [{ type: 'ChurchMember', id: 'LIST' }],
+    }),
+
+    updateChurchMember: builder.mutation<
+      IUser,
+      { id: string; data: IUpdateUser; churchId: string }
+    >({
+      query: ({ id, data, churchId }) => ({
+        microservice: MicroserviceEnum.Church,
+        url: `/church/members/${id}`,
+        method: HttpRequestMethod.PUT,
+        data,
+        headers: { 'x-church-id': churchId },
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'ChurchMember', id },
+        { type: 'ChurchMember', id: 'LIST' },
+      ],
     }),
 
     getChurchStaff: builder.query<IChurchStaff[], { churchId: string }>({
@@ -1186,6 +1260,10 @@ export const {
   useUploadChurchBrandingLogoMutation,
   useGetChurchMembersQuery,
   useLazyGetChurchMembersQuery,
+  useGetChurchMembersDirectoryQuery,
+  useLazyGetChurchMembersDirectoryQuery,
+  useCreateChurchMemberMutation,
+  useUpdateChurchMemberMutation,
   useGetChurchStaffQuery,
   useLazyGetChurchStaffQuery,
   useUpdateChurchStaffRolesMutation,

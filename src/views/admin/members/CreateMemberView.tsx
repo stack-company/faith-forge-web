@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { 
   Camera, 
   Trash2, 
@@ -14,15 +15,26 @@ import {
   Copy,
   CheckCheck,
   ArrowLeft,
+  UserCheck,
+  AlertCircle,
+  Link2,
 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import PageHeader from '@/components/ui/PageHeader';
-import { useAppDispatch } from '@/libs/state/redux/hooks';
-import { CreateUser, CreateUserAccount, UploadUserImage } from '@/libs/state/redux/thunks/user/user.thunk';
+import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
+import { CreateUserAccount, UploadUserImage } from '@/libs/state/redux/thunks/user/user.thunk';
+import {
+  useCreateChurchMemberMutation,
+  useLazyGetChurchMembersDirectoryQuery,
+} from '@/libs/state/redux/api/churchApi';
+import { useLazySearchUserByNationalIdQuery } from '@/libs/state/redux/api/userApi';
+import { getActiveTenantChurchId } from '@/libs/utils/tenant';
 import { 
   ICreateUser, 
+  IUser,
+  UserGenderCode,
   UserIdType, 
   UserState, 
   idTypeSelect, 
@@ -78,6 +90,14 @@ interface CreatedAccountResult {
 const CreateUserView: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { t } = useTranslation('admin');
+  const activeChurchId =
+    useAppSelector((state) => state.churchCampusSlice.church?.id) ||
+    getActiveTenantChurchId();
+
+  const [createChurchMember] = useCreateChurchMemberMutation();
+  const [triggerSearchByNationalId] = useLazySearchUserByNationalIdQuery();
+  const [triggerCheckChurchMember] = useLazyGetChurchMembersDirectoryQuery();
 
   // Estados locales
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -85,9 +105,14 @@ const CreateUserView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLinkingExisting, setIsLinkingExisting] = useState(false);
   const [isUsernameManuallyEdited, setIsUsernameManuallyEdited] = useState(false);
   const [isPasswordManuallyEdited, setIsPasswordManuallyEdited] = useState(false);
   const [hasCopiedText, setHasCopiedText] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<
+    'idle' | 'checking' | 'already_member' | 'existing_other_church' | 'not_found'
+  >('idle');
+  const [matchedUser, setMatchedUser] = useState<IUser | null>(null);
 
   // State for confirmation screen after account creation
   const [createdAccountResult, setCreatedAccountResult] = useState<CreatedAccountResult | null>(null);
@@ -127,6 +152,80 @@ const CreateUserView: React.FC = () => {
   const watchedEmail = watch('email');
   const watchedCreateAccount = watch('createAccount');
   const watchedGender = watch('gender');
+  const watchedNationalId = watch('nationalId');
+  const watchedNationalIdType = watch('nationalIdType');
+
+  // Debounced lookup by nationalId to detect existing platform users or active church members
+  useEffect(() => {
+    const trimmed = (watchedNationalId || '').trim();
+    if (trimmed.length < 5) {
+      setLookupStatus('idle');
+      setMatchedUser(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLookupStatus('checking');
+      try {
+        const [platformUser, churchMembersRes] = await Promise.all([
+          triggerSearchByNationalId({
+            nationalId: trimmed,
+            nationalIdType: watchedNationalIdType,
+          })
+            .unwrap()
+            .catch(() => null),
+          activeChurchId
+            ? triggerCheckChurchMember({
+                churchId: activeChurchId,
+                filterByNationalId: trimmed,
+                limit: 1,
+                page: 1,
+              })
+                .unwrap()
+                .catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        if (cancelled) return;
+
+        const existingChurchMember = churchMembersRes?.data?.find(
+          (u) => (u.nationalId || '').trim() === trimmed,
+        );
+
+        if (existingChurchMember) {
+          setMatchedUser(existingChurchMember);
+          setLookupStatus('already_member');
+          return;
+        }
+
+        if (platformUser && platformUser.id) {
+          setMatchedUser(platformUser);
+          setLookupStatus('existing_other_church');
+          return;
+        }
+
+        setMatchedUser(null);
+        setLookupStatus('not_found');
+      } catch {
+        if (!cancelled) {
+          setMatchedUser(null);
+          setLookupStatus('not_found');
+        }
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    watchedNationalId,
+    watchedNationalIdType,
+    activeChurchId,
+    triggerSearchByNationalId,
+    triggerCheckChurchMember,
+  ]);
 
   // Auto-suggest username when names change if not manually edited
   useEffect(() => {
@@ -214,11 +313,49 @@ const CreateUserView: React.FC = () => {
   };
 
   /**
+   * Links an existing platform user to the active church via POST /church/members.
+   */
+  const handleLinkExistingUser = async () => {
+    if (!matchedUser || !activeChurchId) return;
+    setIsLinkingExisting(true);
+    try {
+      const linkedUser = await createChurchMember({
+        churchId: activeChurchId,
+        data: {
+          firstName: matchedUser.firstName,
+          lastName: matchedUser.lastName,
+          nationalId: matchedUser.nationalId,
+          nationalIdType: matchedUser.nationalIdType || watchedNationalIdType,
+          gender: matchedUser.gender || UserGenderCode.MALE,
+          state: matchedUser.state || UserState.ACTIVE,
+        },
+      }).unwrap();
+
+      toast.success(t('users.link_success'));
+      allowNavigation();
+      navigate(APP_ROUTES.admin.userDetail(linkedUser?.id || matchedUser.id));
+    } catch (err: any) {
+      const status = err?.status ?? err?.originalStatus;
+      if (status === 409) {
+        toast.error(t('users.already_member_conflict'));
+      } else {
+        toast.error(err?.data?.message || err?.message || t('users.link_error'));
+      }
+    } finally {
+      setIsLinkingExisting(false);
+    }
+  };
+
+  /**
    * Submits form to create the user and optional login account.
    *
    * @param {CreateUserFormData} data - Collected form data
    */
   const onSubmit = async (data: CreateUserFormData) => {
+    if (!activeChurchId) {
+      toast.error(t('users.create_error'));
+      return;
+    }
     if (data.createAccount) {
       if (!data.email || !data.email.trim()) {
         toast.error('El correo electrÃ³nico es obligatorio para crear la cuenta de acceso');
@@ -254,7 +391,7 @@ const CreateUserView: React.FC = () => {
         }
       }
 
-      // 2. Create person/user (POST /user)
+      // 2. Create person/member in active church (POST /church/members)
       const userPayload: ICreateUser = {
         firstName: data.firstName.trim(),
         lastName: data.lastName.trim(),
@@ -270,8 +407,11 @@ const CreateUserView: React.FC = () => {
         photoUrl: uploadedPhotoKey,
       };
 
-      const userResponse = await dispatch(CreateUser(userPayload)).unwrap();
-      const createdUserId = userResponse?.id || userResponse?.userId;
+      const userResponse = await createChurchMember({
+        data: userPayload,
+        churchId: activeChurchId,
+      }).unwrap();
+      const createdUserId = userResponse?.id;
 
       // 3. Create login account if enabled (POST /user/account)
       if (data.createAccount) {
@@ -311,7 +451,14 @@ const CreateUserView: React.FC = () => {
         navigate(APP_ROUTES.admin.root);
       }
     } catch (err: any) {
-      toast.error(err?.message || err?.error || 'Error al registrar el usuario');
+      const status = err?.status ?? err?.originalStatus;
+      if (status === 409) {
+        toast.error(t('users.already_member_conflict'));
+      } else {
+        toast.error(
+          err?.data?.message || err?.message || err?.error || t('users.create_error'),
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -606,6 +753,80 @@ Te damos la bienvenida a la plataforma. Tu cuenta de acceso ha sido creada con Ã
               </div>
             </div>
 
+            {lookupStatus === 'checking' && (
+              <div className="flex items-center gap-2 text-xs text-slate-500 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                <Loader2 size={14} className="animate-spin text-primary shrink-0" />
+                <span>{t('users.lookup_checking')}</span>
+              </div>
+            )}
+
+            {lookupStatus === 'already_member' && matchedUser && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold">{t('users.already_member_title')}</p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      {t('users.already_member_desc', {
+                        name: formatPersonFullName(matchedUser.firstName, matchedUser.lastName),
+                        docType: matchedUser.nationalIdType || watchedNationalIdType,
+                        doc: matchedUser.nationalId || watchedNationalId,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => {
+                    allowNavigation();
+                    navigate(APP_ROUTES.admin.userDetail(matchedUser.id));
+                  }}
+                  className="py-1.5 px-3 text-xs font-bold shrink-0 border border-amber-300 bg-white text-amber-900 hover:bg-amber-100/60"
+                >
+                  <UserCheck size={14} className="mr-1.5 inline" />
+                  {t('users.view_profile')}
+                </Button>
+              </div>
+            )}
+
+            {lookupStatus === 'existing_other_church' && matchedUser && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-950">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <Link2 size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold">{t('users.existing_user_title')}</p>
+                    <p className="text-[11px] text-indigo-800 mt-0.5">
+                      {t('users.existing_user_desc', {
+                        name: formatPersonFullName(matchedUser.firstName, matchedUser.lastName),
+                        docType: matchedUser.nationalIdType || watchedNationalIdType,
+                        doc: matchedUser.nationalId || watchedNationalId,
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={isLinkingExisting}
+                  onClick={handleLinkExistingUser}
+                  className="py-2 px-3.5 text-xs font-bold shrink-0 flex items-center gap-1.5"
+                >
+                  {isLinkingExisting ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      {t('users.linking_button')}
+                    </>
+                  ) : (
+                    <>
+                      <Link2 size={14} />
+                      {t('users.link_existing_button')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Controller
                 name="gender"
@@ -852,7 +1073,7 @@ Te damos la bienvenida a la plataforma. Tu cuenta de acceso ha sido creada con Ã
             type="submit"
             variant="primary"
             block
-            disabled={isSubmitting}
+            disabled={isSubmitting || lookupStatus === 'already_member'}
             className="py-3 text-base font-bold shadow-md hover:shadow-lg transition-all mt-2"
           >
             {isSubmitting ? (

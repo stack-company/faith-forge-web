@@ -35,6 +35,7 @@ export type AppCapability =
   // Plataforma Multi-Tenant & Configuración de Iglesia
   | 'platform:manage-churches'
   | 'church:manage-settings'
+  | 'users:assign-global-roles'
   // Recordatorios de Servicio (Experimental Admin)
   | 'admin:send-service-reminders'
   // Operaciones Técnicas y Mantenimiento de Sistema
@@ -121,6 +122,7 @@ export const hasCapability = (cap: AppCapability, ctx: CapabilityContext): boole
       return ctx.isSuperAdmin || ctx.isAdmin || ctx.isMinistryAdmin;
 
     case 'platform:manage-churches':
+    case 'users:assign-global-roles':
       return ctx.isSuperAdmin;
     case 'church:manage-settings':
       return ctx.isSuperAdmin || ctx.isAdmin;
@@ -130,7 +132,7 @@ export const hasCapability = (cap: AppCapability, ctx: CapabilityContext): boole
 
     case 'admin:manage-system-operations':
     case 'admin:run-code-migrations':
-      return ctx.isSuperAdmin || ctx.isAdmin;
+      return ctx.isSuperAdmin;
 
     default:
       return false;

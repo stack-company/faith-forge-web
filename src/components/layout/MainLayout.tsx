@@ -9,12 +9,10 @@ import { SearchScrollProvider, useSearchScroll } from '@/libs/context/SearchScro
 import { RoleTransitionProvider, useRoleTransition } from '@/libs/context/RoleTransitionContext';
 import { useAppDispatch, useAppSelector } from '@/libs/state/redux/hooks';
 import { logout, setActiveExperience } from '@/libs/state/redux/slices/user/auth.slice';
-import { FetchMyVolunteerPermissions } from '@/libs/state/redux/thunks/user/auth.thunk';
 import { isTokenExpired, isTokenExpiringSoon } from '@/libs/utils/jwt';
 import { triggerSilentRefresh } from '@/libs/utils/http';
 import { AppRole, UserExperienceEnum, UserRole, isOperationalStaffRole } from '@/libs/utils/auth';
-import { GetChurchCampuses, GetChurchMeetings } from '@/libs/state/redux/thunks/church/church.thunk';
-import { GetMinistries } from '@/libs/state/redux/thunks/church/ministry.thunk';
+import { GetChurchMeetings } from '@/libs/state/redux/thunks/church/church.thunk';
 import { updateCurrentChurchCampus } from '@/libs/state/redux/slices/church/churchCampus.slice';
 import { ChurchMeetingStateEnum } from '@/libs/models';
 import { usePermissions } from '@/libs/hooks/usePermissions';
@@ -102,33 +100,16 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({ children }) => {
     dispatch(setActiveExperience(UserExperienceEnum.KID_CHURCH_STAFF));
   }, [dispatch]);
 
-  // Automatically refresh volunteer permissions in background on mount/session restore
+  // Refresh active church meetings for the selected campus on mount or campus switch
+  // (campuses, ministries, and permissions are already bootstrapped once in App.tsx)
   useEffect(() => {
-    if (!token) return;
-    dispatch(FetchMyVolunteerPermissions());
-  }, [token, dispatch]);
-
-  // Automatically refresh church campuses, active meetings, and ministries from BE on mount/focus
-  useEffect(() => {
-    if (!token) return;
-
-    dispatch(GetChurchCampuses({ force: true }));
-    if (currentCampus?.id) {
-      dispatch(
-        GetChurchMeetings({
-          churchCampusId: currentCampus.id,
-          state: ChurchMeetingStateEnum.ACTIVE,
-        })
-      );
-      dispatch(
-        GetMinistries({
-          churchCampusId: currentCampus.id,
-          force: true,
-        })
-      );
-    } else {
-      dispatch(GetMinistries({ force: true }));
-    }
+    if (!token || !currentCampus?.id) return;
+    dispatch(
+      GetChurchMeetings({
+        churchCampusId: currentCampus.id,
+        state: ChurchMeetingStateEnum.ACTIVE,
+      })
+    );
   }, [token, currentCampus?.id, dispatch]);
 
   // Active session expiration watcher (checks every 15 seconds or when returning to tab)

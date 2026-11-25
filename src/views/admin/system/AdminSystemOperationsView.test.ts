@@ -4,8 +4,8 @@ import { hasCapability, CapabilityContext } from '@/libs/utils/auth/capabilities
 import { APP_ROUTES } from '@/config/routes';
 
 describe('AdminSystemOperations & Code Migrations', () => {
-  it('registers the expected system operations route in English', () => {
-    expect(APP_ROUTES.admin.systemOperations).toBe('/admin/system');
+  it('registers the expected system operations route in English under superAdmin', () => {
+    expect(APP_ROUTES.superAdmin.systemOperations).toBe('/system');
   });
 
   it('contains the monorepo cheat-sheet migrations with valid microservices', () => {
@@ -26,7 +26,7 @@ describe('AdminSystemOperations & Code Migrations', () => {
     expect(kidChurchMig?.migrationName).toBe('MigrateExistingKidsToUsers1792100001000');
   });
 
-  it('restricts admin:run-code-migrations to SUPER_ADMIN and ADMIN', () => {
+  it('restricts admin:run-code-migrations and admin:manage-system-operations strictly to SUPER_ADMIN', () => {
     const baseContext: CapabilityContext = {
       isAdmin: false,
       isSuperAdmin: false,
@@ -46,12 +46,12 @@ describe('AdminSystemOperations & Code Migrations', () => {
     expect(hasCapability('admin:run-code-migrations', baseContext)).toBe(false);
     expect(hasCapability('admin:manage-system-operations', baseContext)).toBe(false);
 
-    // General Admin can run migrations
+    // Church Admin / General Admin cannot access platform system operations
     const adminContext = { ...baseContext, isAdmin: true };
-    expect(hasCapability('admin:run-code-migrations', adminContext)).toBe(true);
-    expect(hasCapability('admin:manage-system-operations', adminContext)).toBe(true);
+    expect(hasCapability('admin:run-code-migrations', adminContext)).toBe(false);
+    expect(hasCapability('admin:manage-system-operations', adminContext)).toBe(false);
 
-    // Super Admin can run migrations
+    // Super Admin can run migrations and manage system operations
     const superAdminContext = { ...baseContext, isSuperAdmin: true };
     expect(hasCapability('admin:run-code-migrations', superAdminContext)).toBe(true);
     expect(hasCapability('admin:manage-system-operations', superAdminContext)).toBe(true);
